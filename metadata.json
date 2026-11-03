@@ -1,0 +1,6 @@
+{
+  "name": "BHTT Attendance",
+  "description": "College attendance companion for BHTT 5th Sem students at IIHT Varanasi with timetables, AKTU holidays, dual targets, recovery planners, and Firebase sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

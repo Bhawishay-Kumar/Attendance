@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        (!('dateOfBirth' in data) || data.dateOfBirth is string) &&
+        data.batch is string && (data.batch == 'BATCH_A' || data.batch == 'BATCH_B') &&
+        data.courseSelection is string &&
+        data.examTarget is number && data.examTarget >= 50 && data.examTarget <= 100 &&
+        data.stipendTarget is number && data.stipendTarget >= 50 && data.stipendTarget <= 100 &&
+        data.safetyBuffer is number && data.safetyBuffer >= 0 && data.safetyBuffer <= 20 &&
+        data.futureMarkingEnabled is bool &&
+        data.isDarkMode is bool &&
+        data.starfieldAnimationEnabled is bool &&
+        data.progressiveBlurEnabled is bool &&
+        (!('isOnboardingCompleted' in data) || data.isOnboardingCompleted is bool) &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidAttendanceRecord(data, userId) {
+      return data.userId == userId &&
+        data.date is string && data.date.size() == 10 &&
+        data.monthId is string && data.monthId.size() == 7 &&
+        data.isHoliday is bool &&
+        (!('holidayReason' in data) || data.holidayReason is string) &&
+        data.periodsJson is string &&
+        data.attendedCredits is number && data.attendedCredits >= 0 &&
+        data.conductedCredits is number && data.conductedCredits >= 0 &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidMonthSummary(data, userId) {
+      return data.userId == userId &&
+        data.monthId is string && data.monthId.size() == 7 &&
+        data.attendedCredits is number && data.attendedCredits >= 0 &&
+        data.conductedCredits is number && data.conductedCredits >= 0 &&
+        data.percentage is number &&
+        data.isSavedArchive is bool &&
+        (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidMilestone(data, userId) {
+      return data.userId == userId &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 120 &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 500)) &&
+        data.targetDate is string && data.targetDate.size() == 10 &&
+        data.category is string &&
+        data.accent is string &&
+        data.recurrence is string &&
+        data.reminderDays is list && data.reminderDays.size() <= 3 &&
+        data.pinned is bool &&
+        data.completed is bool &&
+        data.deleted is bool &&
+        data.updatedAtMs is number;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data, userId);
+      allow update: if isOwner(userId) && isValidUserProfile(request.resource.data, userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(userId);
+
+      match /records/{recordId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidAttendanceRecord(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidAttendanceRecord(request.resource.data, userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /milestones/{milestoneId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMilestone(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidMilestone(request.resource.data, userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+
+      match /months/{monthId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidMonthSummary(request.resource.data, userId);
+        allow update: if isOwner(userId) && isValidMonthSummary(request.resource.data, userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

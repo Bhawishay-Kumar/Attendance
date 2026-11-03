@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "userId": { "type": "string", "required": true },
+        "name": { "type": "string", "required": true },
+        "dateOfBirth": { "type": "string", "required": false },
+        "batch": { "type": "string", "required": true },
+        "courseSelection": { "type": "string", "required": true },
+        "examTarget": { "type": "number", "required": true },
+        "stipendTarget": { "type": "number", "required": true },
+        "safetyBuffer": { "type": "number", "required": true },
+        "futureMarkingEnabled": { "type": "boolean", "required": true },
+        "isDarkMode": { "type": "boolean", "required": true },
+        "starfieldAnimationEnabled": { "type": "boolean", "required": true },
+        "progressiveBlurEnabled": { "type": "boolean", "required": true },
+        "updatedAt": { "type": "timestamp", "required": false }
+      }
+    },
+    "AttendanceRecord": {
+      "collection": "users/{userId}/records",
+      "fields": {
+        "date": { "type": "string", "required": true },
+        "userId": { "type": "string", "required": true },
+        "monthId": { "type": "string", "required": true },
+        "isHoliday": { "type": "boolean", "required": true },
+        "holidayReason": { "type": "string", "required": false },
+        "periodsJson": { "type": "string", "required": true },
+        "attendedCredits": { "type": "number", "required": true },
+        "conductedCredits": { "type": "number", "required": true },
+        "updatedAt": { "type": "timestamp", "required": false }
+      }
+    },
+    "MonthSummary": {
+      "collection": "users/{userId}/months",
+      "fields": {
+        "monthId": { "type": "string", "required": true },
+        "userId": { "type": "string", "required": true },
+        "attendedCredits": { "type": "number", "required": true },
+        "conductedCredits": { "type": "number", "required": true },
+        "percentage": { "type": "number", "required": true },
+        "isSavedArchive": { "type": "boolean", "required": true },
+        "updatedAt": { "type": "timestamp", "required": false }
+      }
+    }
+  }
+}
