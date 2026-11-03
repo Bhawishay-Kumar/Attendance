@@ -1,5 +1,6 @@
 package com.example.data.reports
 
+import androidx.compose.runtime.Immutable
 import com.example.data.math.AttendanceMath
 import com.example.data.model.PeriodStatus
 import com.example.data.model.StudentProfile
@@ -8,6 +9,7 @@ import java.time.LocalDate
 
 enum class InsightSeverity { POSITIVE, INFO, WARNING, CRITICAL }
 
+@Immutable
 data class Insight(
     val id: String,
     val severity: InsightSeverity,
@@ -21,6 +23,7 @@ data class Insight(
  * reporting period (max 14 days). Auto-credited sessions are left out. These are what-if
  * numbers; nothing is written to attendance records.
  */
+@Immutable
 data class ForecastResult(
     val windowStart: String,
     val windowEnd: String,

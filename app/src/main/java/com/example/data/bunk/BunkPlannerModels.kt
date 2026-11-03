@@ -1,5 +1,6 @@
 package com.example.data.bunk
 
+import androidx.compose.runtime.Immutable
 import com.example.data.model.Subject
 import java.time.LocalDate
 
@@ -21,6 +22,7 @@ enum class NoSafeReason {
     NO_ELIGIBLE_DAYS
 }
 
+@Immutable
 data class BunkSessionEntry(
     val subject: Subject,
     val periodLabel: String,
@@ -30,6 +32,7 @@ data class BunkSessionEntry(
     val isMissed: Boolean
 )
 
+@Immutable
 data class BunkDayEntry(
     val date: LocalDate,
     val kind: BunkDayKind,
@@ -40,6 +43,7 @@ data class BunkDayEntry(
     val subjectsAffected: List<String>
 )
 
+@Immutable
 data class SubjectImpact(
     val subject: Subject,
     val currentAttended: Int,
@@ -52,6 +56,7 @@ data class SubjectImpact(
     val status: SubjectStatus
 )
 
+@Immutable
 data class BunkOption(
     val rank: Int,
     val start: LocalDate,
@@ -81,6 +86,7 @@ data class BunkOption(
     val explanation: String
 )
 
+@Immutable
 data class BunkOverview(
     val monthLabel: String,
     val currentPercent: Double?,
@@ -106,11 +112,14 @@ data class BunkOverview(
     val isProvisional: Boolean get() = unmarkedPastSessions > 0
 }
 
+@Immutable
 sealed interface BunkPlannerResult {
     val overview: BunkOverview?
 
+    @Immutable
     data class Ready(override val overview: BunkOverview, val options: List<BunkOption>) : BunkPlannerResult
 
+    @Immutable
     data class NoSafeOption(
         override val overview: BunkOverview,
         val reason: NoSafeReason,
@@ -121,7 +130,9 @@ sealed interface BunkPlannerResult {
         val weakSubjects: List<String>
     ) : BunkPlannerResult
 
+    @Immutable
     data class InsufficientData(override val overview: BunkOverview?, val message: String) : BunkPlannerResult
 
+    @Immutable
     data class NoRemainingClasses(override val overview: BunkOverview?) : BunkPlannerResult
 }

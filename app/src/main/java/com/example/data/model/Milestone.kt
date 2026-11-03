@@ -55,6 +55,7 @@ object MilestoneLimits {
  * A single user milestone. Dates are ISO-8601 strings (yyyy-MM-dd) so they never shift with time zones.
  * [targetDate] is the anchor: for recurring milestones the countdown points to the next occurrence.
  */
+@androidx.compose.runtime.Immutable
 data class Milestone(
     val id: String,
     val title: String,

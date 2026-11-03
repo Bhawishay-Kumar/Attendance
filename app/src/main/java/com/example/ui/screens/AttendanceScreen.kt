@@ -478,7 +478,7 @@ fun AttendanceScreen(
  }
 }
             } else {
-                items(filteredSlots) { slot ->
+                items(filteredSlots, key = { it.periodNumber }) { slot ->
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()

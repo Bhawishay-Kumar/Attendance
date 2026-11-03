@@ -1,5 +1,6 @@
 package com.example.data.reports
 
+import androidx.compose.runtime.Immutable
 import com.example.data.math.AttendanceMath
 import com.example.data.model.PeriodStatus
 import com.example.data.model.StudentProfile
@@ -14,6 +15,7 @@ import java.util.Locale
 /** Per-session status as seen by Reports. PENDING / UPCOMING never contribute to totals. */
 enum class ReportSessionStatus { PRESENT, AUTO_PRESENT, ABSENT, NO_CLASS, PENDING, UPCOMING }
 
+@Immutable
 data class SessionEntry(
     val date: String,
     val periodNumber: Int,
@@ -26,6 +28,7 @@ data class SessionEntry(
 )
 
 /** Session counts (not weighted). */
+@Immutable
 data class StatusCounts(
     val present: Int = 0,
     val autoPresent: Int = 0,
@@ -39,6 +42,7 @@ data class StatusCounts(
 enum class DayStatus { HOLIDAY, WEEKEND, CANCELLED, ABSENT, PRESENT, INCOMPLETE, PENDING, UPCOMING, NO_SCHEDULE }
 
 /** Everything the calendars need to draw and explain one date. */
+@Immutable
 data class DayReport(
     val date: String,
     /** 1 = Monday .. 7 = Sunday */
@@ -49,6 +53,7 @@ data class DayReport(
     val sessions: List<SessionEntry>
 )
 
+@Immutable
 data class SubjectReport(
     val subject: Subject,
     val attendedCredits: Int,
@@ -65,6 +70,7 @@ data class SubjectReport(
 )
 
 /** One day with at least one confirmed session, plus running totals up to and including it. */
+@Immutable
 data class DailyPoint(
     val date: String,
     val attendedCredits: Int,
@@ -78,6 +84,7 @@ data class DailyPoint(
         get() = if (cumulativeConducted > 0) AttendanceMath.calculatePercentage(cumulativeAttended, cumulativeConducted) else null
 }
 
+@Immutable
 data class ReportAnalytics(
     val range: ReportDateRange,
     val attendedCredits: Int,
@@ -117,13 +124,14 @@ data class ReportAnalytics(
     val hasManualData: Boolean get() = counts.present + counts.absent > 0
 
     /** Weighted hours missed (conducted but not attended). */
-    val missedCredits: Int get() = (conductedCredits - attendedCredits).coerceAtLeast(0)
+    val missedCredits: Int = (conductedCredits - attendedCredits).coerceAtLeast(0)
 
     /** Weighted hours of sessions marked No Class (excluded from attended and conducted). */
-    val cancelledCredits: Int
-        get() = subjects.sumOf { s -> s.sessions.filter { it.status == ReportSessionStatus.NO_CLASS }.sumOf { it.weight } }
+    val cancelledCredits: Int =
+        subjects.sumOf { s -> s.sessions.filter { it.status == ReportSessionStatus.NO_CLASS }.sumOf { it.weight } }
 }
 
+@Immutable
 data class ArchiveEntry(
     val monthId: String,
     val label: String,

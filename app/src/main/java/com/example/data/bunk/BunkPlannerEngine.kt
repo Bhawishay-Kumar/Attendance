@@ -6,6 +6,7 @@ import com.example.data.math.AttendanceProjection
 import com.example.data.model.PeriodSlot
 import com.example.data.model.PeriodStatus
 import com.example.data.model.StudentProfile
+import com.example.data.model.Subject
 import com.example.data.reports.ReportAnalyticsEngine
 import com.example.data.reports.ReportDateRange
 import com.example.data.timetable.TimetableMatrix
@@ -42,7 +43,11 @@ object BunkPlannerEngine {
         /** Live (non-cancelled) sessions; empty for free days. */
         val sessions: List<PeriodSlot>
     ) {
-        val manual: List<PeriodSlot> get() = sessions.filter { !it.subject.isAutoPresent }
+        val manual: List<PeriodSlot> = sessions.filter { !it.subject.isAutoPresent }
+        val manualWeight: Int = manual.sumOf { it.subject.creditHours }
+        val manualCount: Int = manual.size
+        val weightBySubject: Map<String, Int> = manual.groupBy { it.subject.code }.mapValues { (_, v) -> v.sumOf { it.subject.creditHours } }
+        val firstSubjectByCode: Map<String, Subject> = manual.associate { it.subject.code to it.subject }
     }
 
     private class Candidate(
@@ -210,16 +215,27 @@ object BunkPlannerEngine {
         }
 
         val evaluated = candidates.map { c ->
-            val missed = c.bunkDays.flatMap { it.manual }
-            val weighted = missed.sumOf { it.subject.creditHours }
-            val bySubject = missed.groupBy { it.subject.code }.mapValues { (_, v) -> v.sumOf { it.subject.creditHours } }
+            var weighted = 0
+            var classesCount = 0
+            val bySubject = mutableMapOf<String, Int>()
+            val subjectByCode = mutableMapOf<String, Subject>()
+            for (bd in c.bunkDays) {
+                weighted += bd.manualWeight
+                classesCount += bd.manualCount
+                for ((code, w) in bd.weightBySubject) {
+                    bySubject[code] = (bySubject[code] ?: 0) + w
+                }
+                for ((code, sub) in bd.firstSubjectByCode) {
+                    subjectByCode.putIfAbsent(code, sub)
+                }
+            }
             val projA = attendAllA - weighted
             val projC = attendAllC
             val safe = AttendanceProjection.meetsTarget(projA, projC, exam) &&
                 AttendanceProjection.meetsTarget(projA, projC, stipend)
             val comfortable = AttendanceProjection.meetsTarget(projA, projC, (required + buffer).coerceAtMost(100))
             val impacts = bySubject.map { (code, m) ->
-                val sub = missed.first { it.subject.code == code }.subject
+                val sub = subjectByCode[code]!!
                 val base = baseBySubject[code]
                 val a0 = base?.attendedCredits ?: 0
                 val c0 = base?.conductedCredits ?: 0
@@ -239,7 +255,7 @@ object BunkPlannerEngine {
                 )
             }.sortedBy { it.projectedPercent }
             Evaluated(
-                c, weighted, missed.size, projA, projC, safe,
+                c, weighted, classesCount, projA, projC, safe,
                 if (comfortable) SafetyTier.COMFORTABLE else SafetyTier.TIGHT,
                 (AttendanceProjection.rawPercent(projA, projC) ?: 0.0) - required,
                 bySubject, impacts

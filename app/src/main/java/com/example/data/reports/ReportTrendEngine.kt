@@ -1,11 +1,13 @@
 package com.example.data.reports
 
+import androidx.compose.runtime.Immutable
 import com.example.data.model.PeriodStatus
 import java.time.LocalDate
 
 /** Window choices on the Trends tab. All are anchored to the reporting period, never to future dates. */
 enum class TrendWindow { LAST_7_DAYS, LAST_30_DAYS, THIS_PERIOD }
 
+@Immutable
 data class TrendPoint(
     val date: String,
     val dayPercentage: Double?,
@@ -14,8 +16,10 @@ data class TrendPoint(
     val cumulativeConducted: Int
 )
 
+@Immutable
 data class BreakdownSlice(val status: ReportSessionStatus, val sessions: Int, val hours: Int)
 
+@Immutable
 data class SubjectComparison(
     val code: String,
     val name: String,

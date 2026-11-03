@@ -282,7 +282,7 @@ private fun TimetableMatrixDialog(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(slots) { slot ->
+                            items(slots, key = { it.periodNumber }) { slot ->
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -454,7 +454,7 @@ fun AktuAcademicCalendarDialog(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            items(holidays) { h ->
+                            items(holidays, key = { it.date }) { h ->
                                 val hDate = runCatching { LocalDate.parse(h.date) }.getOrNull()
                                 val isPassed = hDate?.isBefore(today) == true
                                 val daysDiff = if (hDate != null && !isPassed) {

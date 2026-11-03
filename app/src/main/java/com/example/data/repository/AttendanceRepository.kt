@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.time.LocalDate
@@ -74,6 +75,8 @@ class AttendanceRepository(
     val holidayOverrides: StateFlow<Map<String, Boolean>> = _holidayOverrides.asStateFlow()
 
     private val ioScope = CoroutineScope(Dispatchers.IO)
+    private val dataVersion = java.util.concurrent.atomic.AtomicLong(0L)
+    private val recordsSaveMutex = kotlinx.coroutines.sync.Mutex()
 
     init {
         performNonDestructiveMigrationIfNeeded()
@@ -206,6 +209,7 @@ class AttendanceRepository(
             requested.copy(themeMode = if (requested.isDarkMode) ThemeMode.DARK.name else ThemeMode.LIGHT.name)
         else requested
         _profileState.value = profile
+        dataVersion.incrementAndGet()
         prefs.edit().apply {
             putString("prof_user_id", profile.userId)
             putString("prof_theme_mode", profile.themeMode.ifBlank { if (profile.isDarkMode) "DARK" else "LIGHT" })
@@ -302,24 +306,31 @@ class AttendanceRepository(
     }
 
     private fun saveLocalRecords() {
-        val rootObj = JSONObject()
-        _recordsMap.value.forEach { (date, periods) ->
-            val dayObj = JSONObject()
-            periods.forEach { (pNum, status) ->
-                dayObj.put(pNum.toString(), status.code)
+        dataVersion.incrementAndGet()
+        val recordsSnapshot = _recordsMap.value
+        val holidaysSnapshot = _holidayOverrides.value
+        ioScope.launch {
+            recordsSaveMutex.withLock {
+                val rootObj = JSONObject()
+                recordsSnapshot.forEach { (date, periods) ->
+                    val dayObj = JSONObject()
+                    periods.forEach { (pNum, status) ->
+                        dayObj.put(pNum.toString(), status.code)
+                    }
+                    rootObj.put(date, dayObj)
+                }
+
+                val holObj = JSONObject()
+                holidaysSnapshot.forEach { (date, isHol) ->
+                    holObj.put(date, isHol)
+                }
+
+                prefs.edit().apply {
+                    putString("saved_records_json", rootObj.toString())
+                    putString("saved_holidays_json", holObj.toString())
+                    apply()
+                }
             }
-            rootObj.put(date, dayObj)
-        }
-
-        val holObj = JSONObject()
-        _holidayOverrides.value.forEach { (date, isHol) ->
-            holObj.put(date, isHol)
-        }
-
-        prefs.edit().apply {
-            putString("saved_records_json", rootObj.toString())
-            putString("saved_holidays_json", holObj.toString())
-            apply()
         }
     }
 
@@ -675,21 +686,20 @@ class AttendanceRepository(
      */
     private data class CachedAnalysisKey(
         val monthId: String,
-        val recordsHash: Int,
-        val holidaysHash: Int,
-        val profile: StudentProfile,
+        val version: Long,
         val today: LocalDate
     )
-    private var cachedAnalysis: Pair<CachedAnalysisKey, com.example.data.reports.ReportAnalytics>? = null
+    private val cachedAnalysis = android.util.LruCache<String, Pair<CachedAnalysisKey, com.example.data.reports.ReportAnalytics>>(16)
 
     private fun getOrComputeAnalytics(monthId: String, today: LocalDate, profile: StudentProfile): com.example.data.reports.ReportAnalytics {
         val range = ReportDateRange.ofMonth(monthId) ?: ReportDateRange(today.plusDays(1), today.plusDays(1))
-        val key = CachedAnalysisKey(monthId, _recordsMap.value.hashCode(), _holidayOverrides.value.hashCode(), profile, today)
-        cachedAnalysis?.let { (cachedKey, result) ->
+        val currentVersion = dataVersion.get()
+        val key = CachedAnalysisKey(monthId, currentVersion, today)
+        cachedAnalysis.get(monthId)?.let { (cachedKey, result) ->
             if (cachedKey == key) return result
         }
         val result = ReportAnalyticsEngine.analyze(range, _recordsMap.value, this::isDateHoliday, profile, today)
-        cachedAnalysis = key to result
+        cachedAnalysis.put(monthId, key to result)
         return result
     }
 

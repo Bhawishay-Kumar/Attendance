@@ -69,10 +69,15 @@ object PdfReportRenderer {
         private lateinit var c: Canvas
         var y = MARGIN
 
+        companion object {
+            private val TYPEFACE_NORMAL: Typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.NORMAL)
+            private val TYPEFACE_BOLD: Typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        }
+
         private fun tp(size: Float, color: Int, bold: Boolean = false) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = size
             this.color = color
-            typeface = Typeface.create(Typeface.SANS_SERIF, if (bold) Typeface.BOLD else Typeface.NORMAL)
+            typeface = if (bold) TYPEFACE_BOLD else TYPEFACE_NORMAL
         }
 
         private fun fill(color: Int) = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; this.color = color }

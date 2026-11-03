@@ -1,5 +1,7 @@
 package com.example.data.model
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentId
 import com.google.firebase.firestore.Exclude
@@ -76,6 +78,7 @@ enum class PeriodStatus(val code: String) {
     }
 }
 
+@Immutable
 data class Subject(
     val code: String,
     val shortName: String,
@@ -86,6 +89,7 @@ data class Subject(
     val iconKey: String = "book"
 )
 
+@Immutable
 data class PeriodSlot(
     val periodNumber: Int,
     val periodLabel: String,
@@ -104,6 +108,7 @@ enum class TierStatus(val label: String, val colorHex: Long) {
     DANGER_ZONE("Danger Zone", 0xFFF43F5E)
 }
 
+@Stable
 @IgnoreExtraProperties
 data class StudentProfile(
     val userId: String = "",
@@ -152,6 +157,7 @@ data class StudentProfile(
         get() = runCatching { CourseSelection.valueOf(courseSelection) }.getOrDefault(CourseSelection.MAJOR_HONOURS)
 }
 
+@Stable
 @IgnoreExtraProperties
 data class AttendanceRecord(
     @DocumentId val date: String = "",
@@ -165,6 +171,7 @@ data class AttendanceRecord(
     @ServerTimestamp val updatedAt: Timestamp? = null
 )
 
+@Stable
 @IgnoreExtraProperties
 data class MonthSummary(
     @DocumentId val monthId: String = "",
@@ -176,6 +183,7 @@ data class MonthSummary(
     @ServerTimestamp val updatedAt: Timestamp? = null
 )
 
+@Immutable
 data class SubjectSummary(
     val subject: Subject,
     val attendedCredits: Int,
@@ -186,6 +194,7 @@ data class SubjectSummary(
     val tierStatus: TierStatus
 )
 
+@Immutable
 data class MonthlyAnalytics(
     val monthId: String,
     val monthName: String,

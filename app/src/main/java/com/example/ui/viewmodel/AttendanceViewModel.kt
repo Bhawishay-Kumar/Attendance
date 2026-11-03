@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -123,7 +124,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _today
     ) { monthId, _, _, _, _ ->
         repository.getMonthlyAnalytics(monthId)
-    }.stateIn(
+    }.flowOn(Dispatchers.Default)
+    .stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000L),
         repository.getMonthlyAnalytics(currentMonthStr)
@@ -137,7 +139,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _today
     ) { monthId, _, _, _, _ ->
         repository.getHeroSessionStats(monthId)
-    }.stateIn(
+    }.flowOn(Dispatchers.Default)
+    .stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000L),
         repository.getHeroSessionStats(currentMonthStr)
@@ -151,7 +154,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _today
     ) { monthId, _, _, _, _ ->
         repository.getSubjectSummaries(monthId)
-    }.stateIn(
+    }.flowOn(Dispatchers.Default)
+    .stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000L),
         repository.getSubjectSummaries(currentMonthStr)

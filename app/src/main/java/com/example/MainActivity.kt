@@ -3,6 +3,7 @@ package com.example
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -97,6 +98,7 @@ fun MainAppContent(viewModel: AttendanceViewModel) {
     val profile by viewModel.profile.collectAsState()
     val selectedTab by viewModel.selectedTab.collectAsState()
     val bunkPlannerOpen by viewModel.bunkPlannerOpen.collectAsState()
+    val whatIfOpen by viewModel.whatIf.isOpen.collectAsState()
 
     val isOnboardingActive = !DEV_BYPASS_ONBOARDING && !profile.isOnboardingCompleted
 
@@ -117,35 +119,40 @@ fun MainAppContent(viewModel: AttendanceViewModel) {
         if (!glass.isDark) {
             // Soft pastel glows give the light theme depth instead of a flat wash
             Box(
-                Modifier.fillMaxSize().drawBehind {
-                    drawCircle(
-                        Brush.radialGradient(
-                            listOf(com.example.ui.theme.LightAuraOrb1.copy(alpha = 0.55f), Color.Transparent),
-                            center = Offset(size.width * 0.10f, size.height * 0.04f), radius = size.width * 0.95f
-                        ),
-                        radius = size.width * 0.95f, center = Offset(size.width * 0.10f, size.height * 0.04f)
+                Modifier.fillMaxSize().drawWithCache {
+                    val c1 = Offset(size.width * 0.10f, size.height * 0.04f)
+                    val r1 = size.width * 0.95f
+                    val b1 = Brush.radialGradient(
+                        listOf(com.example.ui.theme.LightAuraOrb1.copy(alpha = 0.55f), Color.Transparent),
+                        center = c1, radius = r1
                     )
-                    drawCircle(
-                        Brush.radialGradient(
-                            listOf(com.example.ui.theme.LightAuraOrb2.copy(alpha = 0.60f), Color.Transparent),
-                            center = Offset(size.width * 0.95f, size.height * 0.55f), radius = size.width * 0.85f
-                        ),
-                        radius = size.width * 0.85f, center = Offset(size.width * 0.95f, size.height * 0.55f)
+
+                    val c2 = Offset(size.width * 0.95f, size.height * 0.55f)
+                    val r2 = size.width * 0.85f
+                    val b2 = Brush.radialGradient(
+                        listOf(com.example.ui.theme.LightAuraOrb2.copy(alpha = 0.60f), Color.Transparent),
+                        center = c2, radius = r2
                     )
-                    drawCircle(
-                        Brush.radialGradient(
-                            listOf(com.example.ui.theme.LightAuraOrb3.copy(alpha = 0.40f), Color.Transparent),
-                            center = Offset(size.width * 0.20f, size.height * 0.98f), radius = size.width * 0.80f
-                        ),
-                        radius = size.width * 0.80f, center = Offset(size.width * 0.20f, size.height * 0.98f)
+
+                    val c3 = Offset(size.width * 0.20f, size.height * 0.98f)
+                    val r3 = size.width * 0.80f
+                    val b3 = Brush.radialGradient(
+                        listOf(com.example.ui.theme.LightAuraOrb3.copy(alpha = 0.40f), Color.Transparent),
+                        center = c3, radius = r3
                     )
+
+                    onDrawBehind {
+                        drawCircle(b1, radius = r1, center = c1)
+                        drawCircle(b2, radius = r2, center = c2)
+                        drawCircle(b3, radius = r3, center = c3)
+                    }
                 }
             )
         }
         if (glass.isDark && profile.starfieldAnimationEnabled) {
             StarfieldCanvas(
                 modifier = Modifier.fillMaxSize(),
-                enabled = true
+                enabled = !bunkPlannerOpen && !whatIfOpen
             )
         }
 
@@ -237,7 +244,6 @@ fun MainAppContent(viewModel: AttendanceViewModel) {
                 }
             }
         }
-        val whatIfOpen by viewModel.whatIf.isOpen.collectAsState()
         if (whatIfOpen && !isOnboardingActive) {
             com.example.ui.whatif.WhatIfPredictorHost(viewModel.whatIf)
         }
