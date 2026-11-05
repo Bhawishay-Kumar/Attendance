@@ -215,6 +215,10 @@ fun ProgressRing(
             0.25f, 0.8f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Reverse), label = "g"
         )
     }
+    val sweepColors = remember(p.indigo, p.cyan, p.emerald) { listOf(p.indigo, p.cyan, p.emerald, p.indigo) }
+    val targetEntries = remember(examTarget, stipendTarget, p.amber, p.text) {
+        listOf(examTarget to p.amber, stipendTarget to p.text)
+    }
     Box(modifier.size(ringSize), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(ringSize)) {
             val stroke = ringSize.toPx() * 0.095f
@@ -229,7 +233,7 @@ fun ProgressRing(
             if (f > 0.002f) {
                 rotate(-90f) {
                     drawArc(
-                        Brush.sweepGradient(listOf(p.indigo, p.cyan, p.emerald, p.indigo)),
+                        Brush.sweepGradient(sweepColors),
                         0f, 360f * f, false, tl, arcSize, style = Stroke(stroke, cap = StrokeCap.Round)
                     )
                 }
@@ -237,7 +241,7 @@ fun ProgressRing(
             if (showTargets && fraction > 0f) {
                 val r = arcSize.width / 2f
                 val c = center
-                listOf(examTarget to p.amber, stipendTarget to p.text).forEach { (t, col) ->
+                targetEntries.forEach { (t, col) ->
                     val ang = Math.toRadians(-90.0 + 360.0 * t / 100.0)
                     val cx = kotlin.math.cos(ang).toFloat(); val cy = kotlin.math.sin(ang).toFloat()
                     drawLine(

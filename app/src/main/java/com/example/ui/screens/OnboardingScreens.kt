@@ -77,6 +77,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -124,7 +125,8 @@ fun OnboardingFlow(
 ) {
     val glass = LocalGlassTheme.current
     var currentStep by remember { mutableStateOf(1) } // 1 to 5
-    var tempProfile by remember { mutableStateOf(viewModel.profile.value) }
+    val liveProfile by viewModel.profile.collectAsState()
+    var tempProfile: StudentProfile by remember(liveProfile) { mutableStateOf(liveProfile) }
     var showBackfillModal by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -1347,14 +1349,14 @@ fun OnboardingScreen4(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
-    var examCutoff by remember { mutableStateOf(profile.examTarget) }
-    var stipendCutoff by remember { mutableStateOf(profile.stipendTarget) }
-    var safetyBuffer by remember { mutableStateOf(profile.safetyBuffer) }
-    var dailyReminder by remember { mutableStateOf(profile.dailyReminderEnabled) }
-    var dailyTime by remember { mutableStateOf("04:45 PM") }
-    var weeklyReminder by remember { mutableStateOf(profile.weeklyReminderEnabled) }
+    var examCutoff by remember(profile.examTarget) { mutableStateOf(profile.examTarget) }
+    var stipendCutoff by remember(profile.stipendTarget) { mutableStateOf(profile.stipendTarget) }
+    var safetyBuffer by remember(profile.safetyBuffer) { mutableStateOf(profile.safetyBuffer) }
+    var dailyReminder by remember(profile.dailyReminderEnabled) { mutableStateOf(profile.dailyReminderEnabled) }
+    var dailyTime by remember { mutableStateOf(profile.dailyReminderTime.ifBlank { "04:45 PM" }) }
+    var weeklyReminder by remember(profile.weeklyReminderEnabled) { mutableStateOf(profile.weeklyReminderEnabled) }
     var weeklyDayTime by remember { mutableStateOf("Friday • 06:00 PM") }
-    var mainObjective by remember { mutableStateOf(profile.mainObjective) }
+    var mainObjective by remember(profile.mainObjective) { mutableStateOf(profile.mainObjective) }
 
     Column(
         modifier = Modifier
@@ -1411,7 +1413,14 @@ fun OnboardingScreen4(
 
                 ScenicSkyToggle(
                     isDarkMode = profile.isDarkMode,
-                    onToggle = { onProfileChanged(profile.copy(isDarkMode = it)) }
+                    onToggle = { isDark ->
+                        onProfileChanged(
+                            profile.copy(
+                                isDarkMode = isDark,
+                                themeMode = if (isDark) com.example.data.model.ThemeMode.DARK.name else com.example.data.model.ThemeMode.LIGHT.name
+                            )
+                        )
+                    }
                 )
             }
 
@@ -1483,7 +1492,12 @@ fun OnboardingScreen4(
                                         .background(if (isSelected) glass.royalIndigo else Color(0xFF0F172A).copy(alpha = 0.5f))
                                         .border(1.dp, if (isSelected) Color.White.copy(alpha = 0.3f) else glass.cardBorder, RoundedCornerShape(14.dp))
                                         .clickable {
-                                            onProfileChanged(profile.copy(isDarkMode = isDarkOption))
+                                            onProfileChanged(
+                                                profile.copy(
+                                                    isDarkMode = isDarkOption,
+                                                    themeMode = if (isDarkOption) com.example.data.model.ThemeMode.DARK.name else com.example.data.model.ThemeMode.LIGHT.name
+                                                )
+                                            )
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -2350,7 +2364,7 @@ fun MidMonthBackfillBottomSheet(
                     ) {
                         rowDates.forEach { dStr ->
                             val status = dayStatusMap[dStr] ?: "P"
-                            val dayNum = dStr.split("-").last()
+                            val dayNum = dStr.split("-").lastOrNull() ?: ""
                             val (bg, textColor) = when (status) {
                                 "P" -> Color(0xFF10B981).copy(alpha = 0.25f) to Color(0xFF10B981)
                                 "A" -> Color(0xFFEF4444).copy(alpha = 0.25f) to Color(0xFFEF4444)

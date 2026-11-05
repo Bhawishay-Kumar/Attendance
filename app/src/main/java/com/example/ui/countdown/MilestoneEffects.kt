@@ -23,7 +23,9 @@ private class Particle(
     val size: Float,
     val spin: Float,
     val colorIndex: Int,
-    val round: Boolean
+    val round: Boolean,
+    val cosAngle: Float = cos(angle),
+    val sinAngle: Float = sin(angle)
 )
 
 /**
@@ -41,8 +43,9 @@ fun ConfettiBurst(
     val particles = remember {
         val rnd = Random(42)
         List(34) {
+            val a = rnd.nextFloat() * 6.2831855f
             Particle(
-                angle = rnd.nextFloat() * 6.2831855f,
+                angle = a,
                 speed = 0.35f + rnd.nextFloat() * 0.65f,
                 size = 3f + rnd.nextFloat() * 4f,
                 spin = (rnd.nextFloat() - 0.5f) * 720f,
@@ -63,8 +66,8 @@ fun ConfettiBurst(
         val gravity = size.minDimension * 0.55f
         particles.forEach { p ->
             val dist = reach * p.speed * t
-            val x = center.x + cos(p.angle) * dist
-            val y = center.y + sin(p.angle) * dist + gravity * t * t
+            val x = center.x + p.cosAngle * dist
+            val y = center.y + p.sinAngle * dist + gravity * t * t
             val alpha = (1f - t * t).coerceIn(0f, 1f)
             val color = palette[p.colorIndex % palette.size].copy(alpha = alpha)
             val s = p.size.dp.toPx()

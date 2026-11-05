@@ -59,7 +59,7 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 
 // Developer toggle: Set to true to temporarily bypass onboarding for testing; set back to false to restore onboarding flow.
-const val DEV_BYPASS_ONBOARDING = true
+const val DEV_BYPASS_ONBOARDING = false
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

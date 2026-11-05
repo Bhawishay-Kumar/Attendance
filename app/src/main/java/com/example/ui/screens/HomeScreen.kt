@@ -253,7 +253,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 1: COMPACT USER HEADER (SectionOne_CompactHeader)
             // =========================================================================
-            item {
+            item(key = "compact_user_header") {
                 Row(
                     modifier = Modifier
                         // Same top offset as every other tab's AppScreenHeader: status bar + 14dp (first list item, no spacer)
@@ -412,7 +412,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 2: ATTENDANCE SAFETY BADGE PILL (SectionTwo_AttendanceSafetyBadge)
             // =========================================================================
-            item {
+            item(key = "safety_badge") {
  Column(Modifier.loadIn(1, entrance)) {
                 SectionTwo_AttendanceSafetyBadge(
                     tierStatus = analytics.tierStatus,
@@ -427,7 +427,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 3: ATMOSPHERIC MULTI-LAYERED MOUNTAIN LANDSCAPE BANNER
             // =========================================================================
-            item {
+            item(key = "atmospheric_banner") {
  Column(Modifier.loadIn(2, entrance)) {
                 AtmosphericBanner(
                     percentage = analytics.percentage,
@@ -440,7 +440,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 4: HERO MONTHLY ATTENDANCE CARD (SectionThree_HeroAttendanceCard)
             // =========================================================================
-            item {
+            item(key = "hero_attendance_card") {
  Column(Modifier.loadIn(3, entrance)) {
                 SectionThree_HeroAttendanceCard(
                     analytics = analytics,
@@ -455,7 +455,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 5: FLOATING RECOVERY STATUS CARD (SectionFour_RecoveryStatusCard)
             // =========================================================================
-            item {
+            item(key = "recovery_status_card") {
  Column(Modifier.loadIn(4, entrance)) {
                 SectionFour_RecoveryStatusCard(
                     analytics = analytics,
@@ -469,7 +469,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 6: QUICK ACTIVITIES (3 VIVID CARDS)
             // =========================================================================
-            item {
+            item(key = "quick_activities") {
  Column(Modifier.loadIn(5, entrance)) {
                 SectionFive_QuickActivities(
                     onWhatIfClicked = { viewModel.whatIf.open() },
@@ -483,7 +483,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 7: TODAY'S CLASSES SNAPSHOT (2 SIDE-BY-SIDE CARDS)
             // =========================================================================
-            item {
+            item(key = "todays_classes_snapshot") {
  Column(Modifier.loadIn(6, entrance)) {
                 SectionSix_TodaysClassesSnapshot(
                     activeSlot = activeSlot,
@@ -501,7 +501,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 8: TODAY'S CLASSES (ALL) INTERACTIVE LIST + BULK BAR
             // =========================================================================
-            item {
+            item(key = "todays_classes_list") {
  Column(Modifier.loadIn(7, entrance)) {
                 SectionSeven_TodaysClassesListAndInteractiveControls(
                     slots = slots,
@@ -549,7 +549,7 @@ fun HomeScreen(
             // =========================================================================
             // SECTION 9: QUICK STATS (4-COL), NOTIFICATIONS & MOTIVATIONAL FOOTER
             // =========================================================================
-            item {
+            item(key = "quick_stats_and_milestones") {
  Column(Modifier.loadIn(8, entrance)) {
                 QuickStatsAndNotifications(
                     todayPresent = todayPresent,
@@ -566,7 +566,7 @@ fun HomeScreen(
  }
 }
 
-            item {
+            item(key = "bottom_dock_spacer") {
                 Spacer(modifier = Modifier.height(150.dp)) // Padding for floating bottom dock (same as Reports / Settings)
             }
         }

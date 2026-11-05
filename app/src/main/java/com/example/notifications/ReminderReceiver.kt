@@ -60,7 +60,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 .setAutoCancel(true)
                 .setContentIntent(open)
                 .build()
-            NotificationManagerCompat.from(app).notify(id, n)
+            runCatching { NotificationManagerCompat.from(app).notify(id, n) }
         }
         // Always re-arm so the next occurrence exists (also covers BOOT_COMPLETED / MY_PACKAGE_REPLACED).
         repo.rescheduleReminders()

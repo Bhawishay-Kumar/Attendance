@@ -167,7 +167,7 @@ class MilestoneReminderReceiver : BroadcastReceiver() {
             .setContentIntent(open)
             .build()
         // Same id for the same milestone+offset, so a repeated delivery replaces instead of duplicating.
-        NotificationManagerCompat.from(app).notify("milestone:$id:$days".hashCode(), notification)
+        runCatching { NotificationManagerCompat.from(app).notify("milestone:$id:$days".hashCode(), notification) }
     }
 
     companion object {

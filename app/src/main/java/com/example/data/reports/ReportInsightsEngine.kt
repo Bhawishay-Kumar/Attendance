@@ -148,9 +148,10 @@ object ReportInsightsEngine {
             // Subject-level rules (auto-credited subjects excluded: they are not manually attended)
             val graded = current.subjects.filter { it.conductedCredits > 0 && !it.subject.isAutoPresent }
             if (graded.size >= 2) {
-                val best = graded.maxByOrNull { it.percentage }!!
-                val worst = graded.minByOrNull { it.percentage }!!
-                out += Insight(
+                val best = graded.maxByOrNull { it.percentage }
+                val worst = graded.minByOrNull { it.percentage }
+                if (best != null && worst != null) {
+                    out += Insight(
                     "best_subject", InsightSeverity.POSITIVE, "🌟",
                     "Best subject: ${best.subject.shortName}",
                     "${fmt(best.percentage)}% (${best.attendedCredits}/${best.conductedCredits} hrs)."
@@ -164,6 +165,7 @@ object ReportInsightsEngine {
                     )
                 }
             }
+        }
             val belowExam = graded.filter { it.percentage < current.examTarget }
             val belowStipend = graded.filter { it.percentage >= current.examTarget && it.percentage < current.stipendTarget }
             if (belowExam.isNotEmpty()) {

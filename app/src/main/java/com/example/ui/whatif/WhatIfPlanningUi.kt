@@ -288,7 +288,8 @@ private fun BottomBar(ui: WhatIfUiState, c: WhatIfController) {
 fun ClassesScreen(ui: WhatIfUiState, c: WhatIfController) {
     val t = LocalGlassTheme.current
     val date = ui.focusDate ?: return
-    val info = remember(date, ui.baseline) { c.dayInfo(LocalDate.parse(date)) }
+    val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull() ?: return
+    val info = remember(date, ui.baseline) { c.dayInfo(parsedDate) }
     val tracker = rememberEntranceTracker()
     LazyColumn(
         Modifier.fillMaxSize(),

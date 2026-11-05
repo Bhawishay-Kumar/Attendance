@@ -1,72 +1,66 @@
 package com.example.ui.pdf
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.holidays.AktuHolidays
 import com.example.data.pdf.PdfFileManager
-import com.example.data.reports.ReportAnalyticsEngine
-import com.example.data.reports.ReportDateRange
-import com.example.ui.reports.RText
-import com.example.ui.reports.pressClickable
-import com.example.ui.reports.rememberReducedMotion
-import com.example.ui.reports.rememberReportHaptics
-import com.example.ui.reports.rptPalette
-import com.example.ui.theme.LocalGlassTheme
+import com.example.data.pdf.PdfReportType
+import com.example.ui.upgrade.Aurora
+import com.example.ui.upgrade.AuroraBackground
+import com.example.ui.upgrade.PdfReportScreen
+import com.example.ui.upgrade.ReportState
+import com.example.ui.upgrade.Txt
+import com.example.ui.upgrade.pressScale
 import com.example.ui.viewmodel.AttendanceViewModel
 import com.example.ui.viewmodel.PdfInputs
 import com.example.ui.viewmodel.PdfReportViewModel
 import com.example.ui.viewmodel.PdfUiState
-import java.time.LocalDate
+import kotlinx.coroutines.delay
 
 /**
- * The single PDF Report implementation. Home, Reports and Notifications all open it through
- * [AttendanceViewModel.showPdfPreview], so there is exactly one flow, one generator and one set
- * of calculations. Mounted once in MainActivity as a full-screen overlay above the dock.
- *
- * Mode strings accepted by showPdfPreview: "SUMMARY", "DETAILED", "WEEKLY_SUMMARY", "WEEKLY_DETAILED".
+ * Upgraded PDF Report Host.
+ * Connects the real attendance PDF engine to the Aurora Glass PdfReportScreen.
  */
 @Composable
 fun PdfReportHost(attendanceVm: AttendanceViewModel, modifier: Modifier = Modifier) {
@@ -99,38 +93,14 @@ fun PdfReportHost(attendanceVm: AttendanceViewModel, modifier: Modifier = Modifi
     }
 }
 
-private fun depth(s: PdfUiState): Int = when (s) {
-    PdfUiState.Config -> 0
-    PdfUiState.Generating -> 1
-    else -> 2
-}
-
 @Composable
 private fun PdfReportSurface(attendanceVm: AttendanceViewModel, pdfVm: PdfReportViewModel) {
-    val glass = LocalGlassTheme.current
-    val p = remember(glass.isDark) { rptPalette(glass.isDark) }
-    val reduced = rememberReducedMotion()
     val repo = attendanceVm.repository
     val ctx = LocalContext.current
 
     val records by repo.recordsMap.collectAsState()
-    val holidays by repo.holidayOverrides.collectAsState()
     val profile by attendanceVm.profile.collectAsState()
     val ui by pdfVm.ui.collectAsState()
-    val config by pdfVm.config.collectAsState()
-    val notice by pdfVm.notice.collectAsState()
-    val today: LocalDate = AttendanceViewModel.liveToday()
-    val haptic = rememberReportHaptics(profile.hapticFeedbackEnabled)
-
-    // Only months with real (manual) attendance, plus the current month, are offered.
-    val archive = remember(records, holidays, profile, today) {
-        ReportAnalyticsEngine.archiveMonths(records, repo::isDateHoliday, profile, today)
-    }
-    val earliestWeek = remember(records, today) {
-        val first = records.keys.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
-            .filter { !it.isAfter(today) }.minOrNull() ?: today
-        ReportDateRange.weekContaining(first).start
-    }
 
     fun inputs() = PdfInputs(
         records = records,
@@ -140,111 +110,140 @@ private fun PdfReportSurface(attendanceVm: AttendanceViewModel, pdfVm: PdfReport
         today = AttendanceViewModel.liveToday()
     )
 
-    val saveLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/pdf")
-    ) { uri -> pdfVm.saveTo(uri) }
+    var animatedProgress by remember { mutableFloatStateOf(0f) }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(glass.canvasStart, glass.canvasEnd)))
-            // Swallow touches so nothing underneath (dock, lists) reacts while the report is open.
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
-    ) {
-        if (glass.isDark && profile.starfieldAnimationEnabled && !reduced) {
-            com.example.ui.components.StarfieldCanvas(modifier = Modifier.fillMaxSize(), enabled = true)
-        }
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            val title = when (ui) {
-                is PdfUiState.Preview -> "Report preview"
-                PdfUiState.Generating -> "Creating report"
-                else -> "PDF Report"
+    val reportState = when (ui) {
+        PdfUiState.Config -> ReportState.Idle
+        PdfUiState.Generating -> ReportState.Generating
+        is PdfUiState.Preview -> ReportState.Done
+        else -> ReportState.Idle
+    }
+
+    LaunchedEffect(reportState) {
+        if (reportState == ReportState.Generating) {
+            animatedProgress = 0.08f
+            // Progress smoothly increments across the 4 steps
+            val totalSteps = 35
+            for (step in 1..totalSteps) {
+                delay(38)
+                animatedProgress = (step.toFloat() / totalSteps).coerceIn(0.08f, 0.95f)
             }
+        } else if (reportState == ReportState.Done) {
+            animatedProgress = 1f
+        } else {
+            animatedProgress = 0f
+        }
+    }
+
+    AuroraBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                // Intercept clicks so underlying views do not react
+                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
+        ) {
+            // Top Navigation Bar
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    Modifier.size(40.dp).clip(CircleShape).background(p.trackBg)
-                        .pressClickable(enabled = ui != PdfUiState.Generating) {
-                            haptic()
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(0.08f))
+                        .border(1.dp, Color.White.copy(0.18f), CircleShape)
+                        .pressScale(haptic = true) {
                             if (ui == PdfUiState.Config) attendanceVm.showPdfPreview(false) else pdfVm.backToConfig()
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = p.text, modifier = Modifier.size(20.dp))
+                    Txt("←", 20, Aurora.TextHi, FontWeight.Bold)
                 }
-                Spacer(Modifier.width(12.dp))
-                AnimatedContent(
-                    targetState = title,
-                    transitionSpec = {
-                        if (reduced) fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-                        else (fadeIn(tween(260, 60)) + slideInVertically(tween(300)) { it / 2 }) togetherWith
-                            (fadeOut(tween(140)) + slideOutVertically(tween(220)) { -it / 2 })
-                    },
-                    label = "pdfTitle"
-                ) { t -> RText(t, 20f, p.text, weight = FontWeight.Bold, display = true) }
+
+                Txt("PDF Report Generator", 13, Aurora.TextLo, FontWeight.SemiBold)
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(0.08f))
+                        .border(1.dp, Color.White.copy(0.15f), RoundedCornerShape(50))
+                        .pressScale(haptic = true) {
+                            attendanceVm.showPdfPreview(false)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Txt("Close", 13, Aurora.TextHi, FontWeight.SemiBold)
+                }
             }
 
-            AnimatedContent(
-                targetState = ui,
-                contentKey = { it::class },
-                transitionSpec = {
-                    val dir = if (depth(targetState) >= depth(initialState)) 1 else -1
-                    if (reduced) fadeIn(tween(0)) togetherWith fadeOut(tween(0))
-                    else (fadeIn(tween(340, 80)) +
-                        slideInHorizontally(tween(440, easing = FastOutSlowInEasing)) { dir * it / 7 } +
-                        scaleIn(tween(440, easing = FastOutSlowInEasing), initialScale = 0.96f)) togetherWith
-                        (fadeOut(tween(160)) +
-                            slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -dir * it / 9 } +
-                            scaleOut(tween(260), targetScale = 0.98f))
+            // Upgraded PDF Report Screen
+            PdfReportScreen(
+                state = reportState,
+                progress = animatedProgress,
+                onGenerate = { charts, subjectWise, predictions ->
+                    pdfVm.update {
+                        it.copy(reportType = if (subjectWise) PdfReportType.DETAILED else PdfReportType.SUMMARY)
+                    }
+                    pdfVm.generate(inputs())
                 },
-                label = "pdfState",
+                onShare = {
+                    val preview = ui as? PdfUiState.Preview
+                    if (preview != null && preview.file.exists()) {
+                        try {
+                            ctx.startActivity(PdfFileManager.shareIntent(ctx, preview.file, preview.fileName))
+                        } catch (e: Exception) {
+                            pdfVm.reportShareFailure()
+                        }
+                    }
+                },
+                onReset = {
+                    pdfVm.backToConfig()
+                },
                 modifier = Modifier.weight(1f)
-            ) { s ->
-                when (s) {
-                    PdfUiState.Config -> PdfConfigScreen(
-                        p = p, config = config, archive = archive, earliestWeek = earliestWeek, today = today,
-                        haptic = haptic, onChange = { pdfVm.update(it) }, onGenerate = { pdfVm.generate(inputs()) },
-                        reduced = reduced
-                    )
-                    PdfUiState.Generating -> PdfGeneratingState(p, reduced)
-                    is PdfUiState.Preview -> PdfPreviewScreen(
-                        p = p, state = s, notice = notice,
-                        onSave = {
-                            if (!s.file.exists()) pdfVm.fileMissing()
-                            else try { saveLauncher.launch(s.fileName) } catch (e: Exception) {
-                                pdfVm.reportSaveFailure()
-                            }
-                        },
-                        onShare = {
-                            if (!s.file.exists()) pdfVm.fileMissing()
-                            else try { ctx.startActivity(PdfFileManager.shareIntent(ctx, s.file, s.fileName)) }
-                            catch (e: Exception) { pdfVm.reportShareFailure() }
-                        },
-                        onEdit = { pdfVm.backToConfig() },
-                        onClose = { attendanceVm.showPdfPreview(false) },
-                        onDismissNotice = { pdfVm.clearNotice() },
-                        reduced = reduced
-                    )
-                    is PdfUiState.Empty -> PdfMessageState(
-                        p, kind = PdfMessageKind.INFO, title = "No attendance in this period", message = s.message,
-                        primaryLabel = "Change period", onPrimary = { pdfVm.backToConfig() },
-                        reduced = reduced
-                    )
-                    is PdfUiState.Insufficient -> PdfMessageState(
-                        p, kind = PdfMessageKind.WARNING, title = "Not enough attendance data", message = s.message,
-                        primaryLabel = "Change period", onPrimary = { pdfVm.backToConfig() },
-                        reduced = reduced
-                    )
-                    is PdfUiState.Failed -> PdfMessageState(
-                        p, kind = PdfMessageKind.ERROR, title = "Couldn't create the report", message = s.message,
-                        primaryLabel = "Try again", onPrimary = { pdfVm.generate(inputs()) },
-                        secondaryLabel = "Change period", onSecondary = { pdfVm.backToConfig() },
-                        reduced = reduced
-                    )
+            )
+
+            // Feedback notice if generation failed or had insufficient data
+            val noticeMessage = when (val s = ui) {
+                is PdfUiState.Failed -> s.message
+                is PdfUiState.Empty -> s.message
+                is PdfUiState.Insufficient -> s.message
+                else -> null
+            }
+
+            if (noticeMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Aurora.Rose.copy(0.18f))
+                        .border(1.dp, Aurora.Rose.copy(0.45f), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Txt(noticeMessage, 13, Aurora.Rose, FontWeight.SemiBold)
                 }
             }
         }
+    }
+}
+
+@Preview(name = "PDF Report Dark", showBackground = true, backgroundColor = 0xFF080816, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun PdfReportScreenDarkPreview() {
+    AuroraBackground {
+        PdfReportScreen(
+            state = ReportState.Done,
+            progress = 1f,
+            onGenerate = { _, _, _ -> },
+            onShare = {},
+            onReset = {}
+        )
     }
 }

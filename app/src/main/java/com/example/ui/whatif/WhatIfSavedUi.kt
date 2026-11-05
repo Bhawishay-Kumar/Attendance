@@ -91,7 +91,7 @@ fun SavedScreen(ui: WhatIfUiState, c: WhatIfController) {
             }
             if (hasCurrent) {
                 item {
-                    val r = ui.result!!
+                    val r = ui.result ?: return@item
                     SelectableCard(
                         title = "Current plan (unsaved)", subtitle = "${r.mode.label} · ${ui.plan.dates.size} date(s)",
                         pct = r.projectedPct, exam = r.exam.status, stipend = r.stipend.status,

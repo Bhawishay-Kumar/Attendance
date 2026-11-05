@@ -271,6 +271,8 @@ fun GlassDock(
                     }
                 },
         ) {
+            val lensBandPath = remember { Path() }
+            val lensShineColors = remember { listOf(Color.Transparent, Color.White.copy(.55f), Color.Transparent) }
             /* ── the sliding liquid-glass lens ── */
             Box(
                 Modifier
@@ -316,13 +318,16 @@ fun GlassDock(
                             val bw = w * .45f
                             val x = w * (-.6f + 1.9f * p)
                             val skew = h * .325f
-                            val band = Path().apply {
-                                moveTo(x + skew, 0f); lineTo(x + bw + skew, 0f); lineTo(x + bw, h); lineTo(x, h); close()
-                            }
+                            lensBandPath.reset()
+                            lensBandPath.moveTo(x + skew, 0f)
+                            lensBandPath.lineTo(x + bw + skew, 0f)
+                            lensBandPath.lineTo(x + bw, h)
+                            lensBandPath.lineTo(x, h)
+                            lensBandPath.close()
                             drawPath(
-                                band,
+                                lensBandPath,
                                 Brush.horizontalGradient(
-                                    listOf(Color.Transparent, Color.White.copy(.55f), Color.Transparent),
+                                    lensShineColors,
                                     startX = x, endX = x + bw,
                                 ),
                             )

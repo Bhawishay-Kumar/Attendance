@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +88,8 @@ fun GradientProgressBar(
             0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart), label = "s"
         )
     }
+    val shimmerColors = remember { listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent) }
+    val barGradient = remember(colors) { Brush.horizontalGradient(colors) }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -99,7 +102,7 @@ fun GradientProgressBar(
                 .fillMaxHeight()
                 .fillMaxWidth(f)
                 .clip(RoundedCornerShape(50))
-                .background(Brush.horizontalGradient(colors))
+                .background(barGradient)
                 .drawWithContent {
                     drawContent()
                     if (!reducedMotion && f > 0.02f) {
@@ -107,7 +110,7 @@ fun GradientProgressBar(
                         val x = (size.width + band) * shimmer.value - band
                         drawRect(
                             brush = Brush.horizontalGradient(
-                                listOf(Color.Transparent, Color.White.copy(alpha = 0.35f), Color.Transparent),
+                                shimmerColors,
                                 startX = x, endX = x + band
                             )
                         )
@@ -164,6 +167,15 @@ fun TrendLineChart(
                 }
             }
         }
+        val cachedLinePath = remember(points) { Path() }
+        val cachedAreaPath = remember(points) { Path() }
+        val cachedSegPath = remember(points) { Path() }
+        val cachedPathMeasure = remember(points) { PathMeasure() }
+        val lineGradient = remember(p.indigo, p.cyan, p.emerald) {
+            Brush.horizontalGradient(listOf(p.indigo, p.cyan, p.emerald))
+        }
+        var lastW by remember(points) { mutableFloatStateOf(0f) }
+        var lastH by remember(points) { mutableFloatStateOf(0f) }
         Spacer(Modifier.height(6.dp))
         Canvas(
             modifier = Modifier
@@ -177,7 +189,7 @@ fun TrendLineChart(
                 }
                 .pointerInput(points) {
                     detectHorizontalDragGestures { change, _ ->
-                        val step = size.width.toFloat() / (points.size - 1)
+            val step = size.width.toFloat() / (points.size - 1)
                         selected = (change.position.x / step).let { kotlin.math.round(it).toInt() }.coerceIn(0, points.lastIndex)
                     }
                 }
@@ -193,31 +205,33 @@ fun TrendLineChart(
                 if (t > lo) drawLine(c.copy(alpha = 0.55f), Offset(0f, y(t.toDouble())), Offset(w, y(t.toDouble())), strokeWidth = 1.5f * density, pathEffect = dash)
             }
 
-            val line = Path()
-            points.forEachIndexed { i, pt ->
-                val px = x(i); val py = y(pt.cumulativePercentage)
-                if (i == 0) line.moveTo(px, py) else {
-                    val px0 = x(i - 1); val py0 = y(points[i - 1].cumulativePercentage)
-                    val cx = (px0 + px) / 2f
-                    line.cubicTo(cx, py0, cx, py, px, py)
+            if (w != lastW || h != lastH) {
+                lastW = w
+                lastH = h
+                cachedLinePath.reset()
+                points.forEachIndexed { i, pt ->
+                    val px = x(i); val py = y(pt.cumulativePercentage)
+                    if (i == 0) cachedLinePath.moveTo(px, py) else {
+                        val px0 = x(i - 1); val py0 = y(points[i - 1].cumulativePercentage)
+                        val cx = (px0 + px) / 2f
+                        cachedLinePath.cubicTo(cx, py0, cx, py, px, py)
+                    }
                 }
+                cachedAreaPath.reset()
+                cachedAreaPath.addPath(cachedLinePath)
+                cachedAreaPath.lineTo(w, h); cachedAreaPath.lineTo(0f, h); cachedAreaPath.close()
+                cachedPathMeasure.setPath(cachedLinePath, false)
             }
-            // area under curve
-            val area = Path().apply {
-                addPath(line)
-                lineTo(w, h); lineTo(0f, h); close()
-            }
+
             drawPath(
-                area,
+                cachedAreaPath,
                 Brush.verticalGradient(listOf(p.indigo.copy(alpha = 0.30f * progress.value), Color.Transparent)),
             )
-            val pm = PathMeasure()
-            pm.setPath(line, false)
-            val seg = Path()
-            pm.getSegment(0f, pm.length * progress.value, seg, true)
+            cachedSegPath.reset()
+            cachedPathMeasure.getSegment(0f, cachedPathMeasure.length * progress.value, cachedSegPath, true)
             drawPath(
-                seg,
-                Brush.horizontalGradient(listOf(p.indigo, p.cyan, p.emerald)),
+                cachedSegPath,
+                lineGradient,
                 style = Stroke(width = 3f * density, cap = StrokeCap.Round)
             )
             if (progress.value > 0.98f) {

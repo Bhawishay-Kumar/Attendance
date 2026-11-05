@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -94,6 +95,8 @@ import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.Dispatchers
@@ -105,6 +108,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+private fun safeFirebaseAuth(context: Context): FirebaseAuth? = runCatching {
+    if (FirebaseApp.getApps(context).isEmpty()) {
+        FirebaseApp.initializeApp(context)
+    }
+    Firebase.auth
+}.getOrNull()
 
 /**
  * Settings & Profile — native Compose port of the Stitch "luxury glass" design.
@@ -134,7 +144,7 @@ fun SettingsScreen(
     var pendingRestore by remember { mutableStateOf<AttendanceRepository.BackupPreview?>(null) }
 
     // ── cloud state ──
-    var currentUser by remember { mutableStateOf(Firebase.auth.currentUser) }
+    var currentUser by remember { mutableStateOf(safeFirebaseAuth(context)?.currentUser) }
     var isSigningIn by remember { mutableStateOf(false) }
     var busyOp by remember { mutableStateOf<String?>(null) }
     var cloudMsg by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
@@ -317,8 +327,9 @@ fun SettingsScreen(
                                     val cred = res.credential
                                     if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                                         val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
-                                        Firebase.auth.signInWithCredential(GoogleAuthProvider.getCredential(token, null)).await()
-                                        currentUser = Firebase.auth.currentUser
+                                        val auth = safeFirebaseAuth(context) ?: error("Firebase unavailable")
+                                        auth.signInWithCredential(GoogleAuthProvider.getCredential(token, null)).await()
+                                        currentUser = auth.currentUser
                                         toast("Signed in successfully!")
                                     }
                                 } catch (e: GetCredentialCancellationException) {
@@ -332,7 +343,7 @@ fun SettingsScreen(
                             }
                         },
                         onSignOut = {
-                            Firebase.auth.signOut()
+                            safeFirebaseAuth(context)?.signOut()
                             scope.launch {
                                 runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
                                 currentUser = null
@@ -340,7 +351,8 @@ fun SettingsScreen(
                             }
                         },
                         onBackup = {
-                            if (Firebase.auth.currentUser == null) {
+                            val auth = safeFirebaseAuth(context)
+                            if (auth?.currentUser == null) {
                                 cloudMsg = false to "Sign in with Google first to back up to the cloud."
                             } else scope.launch {
                                 busyOp = "backup"; cloudMsg = null

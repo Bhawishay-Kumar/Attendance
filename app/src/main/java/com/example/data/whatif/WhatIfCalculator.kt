@@ -211,7 +211,8 @@ object WhatIfCalculator {
         val dates: List<LocalDate> = if (mode == ProjectionMode.MONTH_END) {
             val out = mutableListOf<LocalDate>()
             var d = ctx.today.plusDays(1)
-            while (!d.isAfter(horizonEnd!!)) { out.add(d); d = d.plusDays(1) }
+            val hEnd = horizonEnd ?: ctx.today.withDayOfMonth(ctx.today.lengthOfMonth())
+            while (!d.isAfter(hEnd)) { out.add(d); d = d.plusDays(1) }
             out
         } else {
             validated.keys.sorted().mapNotNull { parseIso(it) }

@@ -280,12 +280,12 @@ fun MonthCalendarCard(
 ) {
     val days = a.days
     if (days.isEmpty()) return
-    val first = LocalDate.parse(days.first().date)
+    val first = runCatching { LocalDate.parse(days.first().date) }.getOrElse { today }
     val offset = first.dayOfWeek.value - 1
     val rows = (offset + days.size + 6) / 7
     val selectedDay = days.firstOrNull { it.date == selected }
 
-    val working = days.filter { it.status != DayStatus.HOLIDAY && it.status != DayStatus.WEEKEND && it.status != DayStatus.NO_SCHEDULE && !LocalDate.parse(it.date).isAfter(today) }
+    val working = days.filter { it.status != DayStatus.HOLIDAY && it.status != DayStatus.WEEKEND && it.status != DayStatus.NO_SCHEDULE && runCatching { !LocalDate.parse(it.date).isAfter(today) }.getOrDefault(false) }
     val marked = working.count { it.status == DayStatus.PRESENT || it.status == DayStatus.ABSENT || it.status == DayStatus.INCOMPLETE || it.status == DayStatus.CANCELLED }
     val markedFrac = if (working.isEmpty()) 0f else marked.toFloat() / working.size
     val streak = remember(days) { ReportTrendEngine.presentStreak(days) }
@@ -339,6 +339,11 @@ fun MonthCalendarCard(
                     }
                 }
             }
+            val currentSelected by rememberUpdatedState(selected)
+            val currentOnSelect by rememberUpdatedState(onSelect)
+            val onDayClick: (String) -> Unit = remember {
+                { date -> currentOnSelect(if (currentSelected == date) null else date) }
+            }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (r in 0 until rows) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -349,7 +354,7 @@ fun MonthCalendarCard(
                                 DayCell(
                                     p, d, isToday = d.date == today.toString(), isSelected = d.date == selected,
                                     order = idx + offset, reduced = reduced, key = a.range,
-                                    onClick = { onSelect(if (selected == d.date) null else d.date) },
+                                    onDayClick = onDayClick,
                                     modifier = Modifier.weight(1f)
                                 )
                             } else {
@@ -375,7 +380,7 @@ private fun DayCell(
     order: Int,
     reduced: Boolean,
     key: Any,
-    onClick: () -> Unit,
+    onDayClick: (String) -> Unit,
     modifier: Modifier
 ) {
     val color = dayStatusColor(d.status, p)
@@ -385,7 +390,7 @@ private fun DayCell(
         if (isSelected) 1.14f else 1f,
         spring(dampingRatio = 0.45f, stiffness = Spring.StiffnessMedium), label = "cellSel"
     )
-    val date = remember(d.date) { LocalDate.parse(d.date) }
+    val date = remember(d.date) { runCatching { LocalDate.parse(d.date) }.getOrElse { LocalDate.now() } }
     val markedFrac = remember(d) { manualProgress(d).first }
     val numColor = when {
         filled -> Color.White
@@ -434,7 +439,7 @@ private fun DayCell(
                 }
             }
             .clip(CircleShape)
-            .pressClickable(onClick = onClick),
+            .pressClickable(onClick = { onDayClick(d.date) }),
         contentAlignment = Alignment.Center
     ) {
         RText("${date.dayOfMonth}", 13f, numColor, weight = FontWeight.Bold, tnum = true)
@@ -460,8 +465,8 @@ fun WeekCalendarCard(
 ) {
     val days = a.days
     if (days.isEmpty()) return
-    val start = LocalDate.parse(days.first().date)
-    val end = LocalDate.parse(days.last().date)
+    val start = runCatching { LocalDate.parse(days.first().date) }.getOrElse { today }
+    val end = runCatching { LocalDate.parse(days.last().date) }.getOrElse { today }
     val selectedDay = days.firstOrNull { it.date == selected }
     val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
     val counts = remember(days) {
@@ -507,12 +512,17 @@ fun WeekCalendarCard(
                 }
                 if (nav != null) CalArrow("\u203A", nav.canNext, p, nav.onNext)
             }
+            val currentSelected by rememberUpdatedState(selected)
+            val currentOnSelect by rememberUpdatedState(onSelect)
+            val onDayClick: (String) -> Unit = remember {
+                { date -> currentOnSelect(if (currentSelected == date) null else date) }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 days.forEachIndexed { i, d ->
                     WeekDayCard(
                         p, d, isToday = d.date == today.toString(), isSelected = d.date == selected,
                         order = i, reduced = reduced, key = start,
-                        onClick = { onSelect(if (selected == d.date) null else d.date) },
+                        onDayClick = onDayClick,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -547,7 +557,7 @@ private fun WeekDayCard(
     order: Int,
     reduced: Boolean,
     key: Any,
-    onClick: () -> Unit,
+    onDayClick: (String) -> Unit,
     modifier: Modifier
 ) {
     val color = dayStatusColor(d.status, p)
@@ -564,7 +574,7 @@ private fun WeekDayCard(
         spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessVeryLow), label = "fill"
     )
     val shape = RoundedCornerShape(20.dp)
-    val date = remember(d.date) { LocalDate.parse(d.date) }
+    val date = remember(d.date) { runCatching { LocalDate.parse(d.date) }.getOrElse { LocalDate.now() } }
     val dots = remember(d) { d.sessions.filter { !it.subject.isAutoPresent } }
     Box(
         modifier
@@ -576,7 +586,7 @@ private fun WeekDayCard(
                 else Brush.verticalGradient(listOf(color.copy(alpha = if (isSelected) 0.42f else 0.22f), color.copy(alpha = 0.05f)))
             )
             .border(BorderStroke(if (isSelected) 2.dp else 1.dp, if (quiet) Color.Transparent else color.copy(alpha = if (isSelected) 0.95f else 0.3f)), shape)
-            .pressClickable(onClick = onClick)
+            .pressClickable(onClick = { onDayClick(d.date) })
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.TopCenter
     ) {

@@ -126,7 +126,11 @@ fun RedesignBulkAttendanceCard(
             )
             Box(
                 modifier = Modifier
-                    .scale(bumpScale.value)
+                    .graphicsLayer {
+                        val s = bumpScale.value
+                        scaleX = s
+                        scaleY = s
+                    }
                     .clip(CircleShape)
                     .background(chipBg)
                     .border(1.dp, chipBorder, CircleShape)
@@ -505,7 +509,11 @@ fun RedesignSubjectAttendanceCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp),
                     modifier = Modifier
-                        .scale(pillPopScale.value)
+                        .graphicsLayer {
+                            val s = pillPopScale.value
+                            scaleX = s
+                            scaleY = s
+                        }
                         .height(28.dp)
                         .clip(CircleShape)
                         .background(pillBg)
@@ -535,7 +543,11 @@ fun RedesignSubjectAttendanceCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .scale(iconPopScale.value)
+                        .graphicsLayer {
+                            val s = iconPopScale.value
+                            scaleX = s
+                            scaleY = s
+                        }
                         .size(48.dp)
                         .clip(RoundedCornerShape(15.dp))
                         .background(

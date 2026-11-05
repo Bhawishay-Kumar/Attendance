@@ -104,8 +104,6 @@ fun AttendanceScreen(
     val monthlyAnalytics by viewModel.monthlyAnalytics.collectAsState()
     val showBackfillModal by viewModel.showMidMonthBackfillModal.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
-    val cascadingPeriod by viewModel.cascadingPeriodNumber.collectAsState()
-    val immunityPulseSlot by viewModel.immunityPulseSlotNumber.collectAsState()
 
     var shakeTriggerKey by remember { mutableIntStateOf(0) }
 
@@ -144,6 +142,34 @@ fun AttendanceScreen(
     }
     val autoCreditedCount = slots.count { it.subject.isAutoPresent }
 
+    val dateStatusResolver = remember(recordsMap, holidayOverrides) {
+        { d: LocalDate ->
+            val dStr = d.toString()
+            val isHol = AktuHolidays.isHoliday(dStr) || (holidayOverrides[dStr] == true)
+            if (isHol) {
+                DayAttendanceStatus.HOLIDAY
+            } else {
+                val recs = recordsMap[dStr]
+                if (recs != null && recs.isNotEmpty()) {
+                    val conducted = recs.filter { it.value != PeriodStatus.NO_CLASS }
+                    if (conducted.isNotEmpty() && conducted.values.all { it == PeriodStatus.PRESENT || it == PeriodStatus.AUTO_PRESENT }) {
+                        DayAttendanceStatus.ALL_PRESENT
+                    } else if (conducted.values.any { it == PeriodStatus.ABSENT }) {
+                        DayAttendanceStatus.ABSENT_OR_MIXED
+                    } else {
+                        DayAttendanceStatus.UNMARKED
+                    }
+                } else {
+                    DayAttendanceStatus.UNMARKED
+                }
+            }
+        }
+    }
+
+    val isLockedDate = remember(profile.futureMarkingEnabled, liveToday) {
+        { d: LocalDate -> !profile.futureMarkingEnabled && d.isAfter(liveToday) }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         val entrance = rememberEntranceTracker()
         LazyColumn(
@@ -172,28 +198,8 @@ fun AttendanceScreen(
                         viewModel.selectDate(newDate)
                     },
                     today = liveToday,
-                    dateStatusResolver = { d ->
-                        val dStr = d.toString()
-                        val isHol = AktuHolidays.isHoliday(dStr) || (holidayOverrides[dStr] == true)
-                        if (isHol) {
-                            DayAttendanceStatus.HOLIDAY
-                        } else {
-                            val recs = recordsMap[dStr]
-                            if (recs != null && recs.isNotEmpty()) {
-                                val conducted = recs.filter { it.value != PeriodStatus.NO_CLASS }
-                                if (conducted.isNotEmpty() && conducted.values.all { it == PeriodStatus.PRESENT || it == PeriodStatus.AUTO_PRESENT }) {
-                                    DayAttendanceStatus.ALL_PRESENT
-                                } else if (conducted.values.any { it == PeriodStatus.ABSENT }) {
-                                    DayAttendanceStatus.ABSENT_OR_MIXED
-                                } else {
-                                    DayAttendanceStatus.UNMARKED
-                                }
-                            } else {
-                                DayAttendanceStatus.UNMARKED
-                            }
-                        }
-                    },
-                    isLocked = { !profile.futureMarkingEnabled && it.isAfter(liveToday) },
+                    dateStatusResolver = dateStatusResolver,
+                    isLocked = isLockedDate,
                     onLockedClick = {
                         shakeTriggerKey++
                         viewModel.showToast(

@@ -37,7 +37,10 @@ object PdfConfigResolver {
         }
         PdfPeriodType.CUSTOM -> {
             val err = PdfRangeValidator.validateCustom(cfg.customStart, cfg.customEnd, today)
-            if (err != null) null to err else ReportDateRange.custom(cfg.customStart!!, cfg.customEnd!!) to null
+            val cs = cfg.customStart
+            val ce = cfg.customEnd
+            if (err != null || cs == null || ce == null) null to (err ?: "Please select both start and end dates.")
+            else ReportDateRange.custom(cs, ce) to null
         }
     }
 }

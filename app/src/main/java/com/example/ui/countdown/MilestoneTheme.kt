@@ -322,18 +322,22 @@ fun Modifier.auroraBackground(colors: MilestoneColors, motion: Boolean): Modifie
             label = "auroraDrift"
         )
     } else null
+    val baseColors = remember(colors) { listOf(colors.baseTop, colors.baseBottom) }
+    val colorsA = remember(colors.orbA) { listOf(colors.orbA, Color.Transparent) }
+    val colorsB = remember(colors.orbB) { listOf(colors.orbB, Color.Transparent) }
+    val colorsC = remember(colors.orbC) { listOf(colors.orbC, Color.Transparent) }
     return this.drawBehind {
         val t = drift?.value ?: 0.5f // read in the draw phase only: no recomposition per frame
-        drawRect(Brush.verticalGradient(listOf(colors.baseTop, colors.baseBottom)))
+        drawRect(Brush.verticalGradient(baseColors))
         val r = maxOf(size.width, size.height) * 0.62f
-        fun orb(color: Color, cx: Float, cy: Float) = drawCircle(
-            brush = Brush.radialGradient(listOf(color, Color.Transparent), center = Offset(cx, cy), radius = r),
+        fun orb(cList: List<Color>, cx: Float, cy: Float) = drawCircle(
+            brush = Brush.radialGradient(cList, center = Offset(cx, cy), radius = r),
             radius = r,
             center = Offset(cx, cy)
         )
-        orb(colors.orbA, size.width * (0.10f + 0.30f * t), size.height * 0.15f)
-        orb(colors.orbB, size.width * (0.92f - 0.28f * t), size.height * (0.80f - 0.10f * t))
-        orb(colors.orbC, size.width * 0.50f, size.height * (0.45f + 0.30f * t))
+        orb(colorsA, size.width * (0.10f + 0.30f * t), size.height * 0.15f)
+        orb(colorsB, size.width * (0.92f - 0.28f * t), size.height * (0.80f - 0.10f * t))
+        orb(colorsC, size.width * 0.50f, size.height * (0.45f + 0.30f * t))
     }
 }
 

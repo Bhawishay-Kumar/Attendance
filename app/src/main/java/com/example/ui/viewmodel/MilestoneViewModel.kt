@@ -150,7 +150,7 @@ class MilestoneViewModel(application: Application) : AndroidViewModel(applicatio
             _messages.tryEmit("Birthday is already added")
             return true
         }
-        val preset = MilestonePresets.byKey(MilestonePresets.BIRTHDAY)!!
+        val preset = MilestonePresets.byKey(MilestonePresets.BIRTHDAY) ?: return false
         saveNew(
             MilestoneDraft(
                 clientId = BIRTHDAY_CLIENT_ID,

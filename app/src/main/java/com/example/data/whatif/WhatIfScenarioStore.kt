@@ -50,7 +50,7 @@ class WhatIfScenarioStore(private val prefs: SharedPreferences) {
             when {
                 parsed.isFailure -> unreadable++
                 parsed.getOrNull() == null -> newer++
-                else -> ok.add(parsed.getOrNull()!!)
+                else -> parsed.getOrNull()?.let { ok.add(it) }
             }
         }
         return LoadResult(ok.sortedByDescending { it.savedAtMillis }, unreadable, newer)

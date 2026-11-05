@@ -118,9 +118,11 @@ fun ReportsScreen(
     var historyAll by remember { mutableStateOf(setOf<String>()) }
     var activeTool by remember { mutableStateOf<SmartTool?>(null) }
 
-    val currentMonthRange = remember(today) { ReportDateRange.ofMonth(YearMonth.from(today).toString())!! }
+    val currentMonthRange = remember(today) {
+        ReportDateRange.ofMonth(YearMonth.from(today).toString()) ?: ReportDateRange.weekContaining(today)
+    }
 
-    val isHoliday: (String) -> Boolean = repo::isDateHoliday
+    val isHoliday: (String) -> Boolean = remember(repo) { repo::isDateHoliday }
     // Only months with real attendance (plus the current month) are ever offered.
     val archive = remember(records, holidays, profile, today) {
         ReportAnalyticsEngine.archiveMonths(records, isHoliday, profile, today)
@@ -131,7 +133,7 @@ fun ReportsScreen(
         ReportTimeframe.MONTHLY -> ReportDateRange.ofMonth(effectiveMonthId) ?: currentMonthRange
         ReportTimeframe.WEEKLY -> ReportDateRange.weekContaining(weekAnchor)
     }
-    val holidayName: (String) -> String? = { AktuHolidays.getHoliday(it)?.name }
+    val holidayName: (String) -> String? = remember { { AktuHolidays.getHoliday(it)?.name } }
     val earliestWeek = remember(records, today) {
         val first = records.keys.mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
             .filter { !it.isAfter(today) }.minOrNull() ?: today
@@ -162,8 +164,8 @@ fun ReportsScreen(
     val windowAnalytics: ReportAnalytics = remember(windowRange, records, holidays, profile, today) {
         ReportAnalyticsEngine.analyze(windowRange, records, isHoliday, profile, today)
     }
-    val semesterPoints = remember(effRange, records, holidays, profile, today) {
-        val anchor = if (effRange.end.isAfter(today)) today else effRange.end
+    val anchor = if (effRange.end.isAfter(today)) today else effRange.end
+    val semesterPoints = remember(anchor, records, holidays, profile, today) {
         ReportTrendEngine.semesterRange(records, anchor)?.let {
             ReportTrendEngine.trajectory(ReportAnalyticsEngine.analyze(it, records, isHoliday, profile, today))
         } ?: emptyList()
@@ -199,7 +201,7 @@ fun ReportsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Shared header: same component, top offset and toggle as Attendance / Timetable / Settings
-            item {
+            item(key = "report_header") {
                 AppScreenHeader(
                     title = "Reports & Analytics",
                     subtitle = "Monthly & Subject-Wise Breakdown",
@@ -208,7 +210,7 @@ fun ReportsScreen(
                     modifier = Modifier.padding(horizontal = 4.dp) // list has 16dp -> title sits 20dp from the edge
                 )
             }
-            item {
+            item(key = "month_archive") {
                 MonthArchiveRibbon(
                     p, archive,
                     selectedMonthId = ribbonMonthId,
@@ -217,10 +219,10 @@ fun ReportsScreen(
                     onSelect = { id -> haptic(); viewModel.selectMonth(id); timeframe = ReportTimeframe.MONTHLY }
                 )
             }
-            item {
+            item(key = "timeframe_toggle") {
                 TimeframeSegmented(p, timeframe) { tf -> if (tf != timeframe) haptic(); timeframe = tf }
             }
-            item {
+            item(key = "section_tabs") {
                 SectionTabs(
                     p, section,
                     subjectCount = analytics.subjects.size,
@@ -228,7 +230,7 @@ fun ReportsScreen(
                     onSelect = { haptic(); section = it }
                 )
             }
-            item {
+            item(key = "section_content") {
               Box(Modifier.animateContentSize(tween(if (reduced) 0 else 300))) {
                 AnimatedContent(
                     targetState = section,

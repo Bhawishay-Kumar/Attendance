@@ -185,7 +185,7 @@ object PdfReportBuilder {
     private fun detailRows(a: ReportAnalytics, holidayName: (String) -> String?): List<PdfDetailRow> {
         val rows = mutableListOf<PdfDetailRow>()
         for (day in a.days) {
-            val date = LocalDate.parse(day.date)
+            val date = runCatching { LocalDate.parse(day.date) }.getOrNull() ?: continue
             val label = date.format(rowDate)
             if (day.status == com.example.data.reports.DayStatus.HOLIDAY) {
                 if (day.dayOfWeek in 1..5) {

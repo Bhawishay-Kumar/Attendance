@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -36,6 +37,9 @@ import androidx.compose.ui.unit.sp
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
+
+private val GAUGE_TICK_COS = FloatArray(36) { cos(Math.toRadians(it * 10.0)).toFloat() }
+private val GAUGE_TICK_SIN = FloatArray(36) { sin(Math.toRadians(it * 10.0)).toFloat() }
 
 /**
  * Outer Hero Card wrapper with animated aurora mesh glow & shimmering glass border.
@@ -62,7 +66,7 @@ fun UpgradedHeroCardContainer(
         label = "aurora_drift"
     )
 
-    val borderGlowAlpha by infiniteTransition.animateFloat(
+    val borderGlow = infiniteTransition.animateFloat(
         initialValue = 0.16f,
         targetValue = 0.42f,
         animationSpec = infiniteRepeatable(
@@ -91,20 +95,29 @@ fun UpgradedHeroCardContainer(
             .fillMaxWidth()
             .clip(cardShape)
             .background(baseBg)
-            .border(
-                width = 1.2.dp,
-                brush = Brush.linearGradient(
+            .drawWithContent {
+                drawContent()
+                val glow = borderGlow.value
+                val strokePx = 1.2.dp.toPx()
+                val halfStroke = strokePx / 2f
+                val borderBrush = Brush.linearGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = borderGlowAlpha),
-                        dynamicAccent.copy(alpha = borderGlowAlpha * 0.95f),
+                        Color.White.copy(alpha = glow),
+                        dynamicAccent.copy(alpha = glow * 0.95f),
                         Color(0xFF8B5CF6).copy(alpha = 0.18f),
                         Color.White.copy(alpha = 0.08f)
                     ),
                     start = Offset(0f, 0f),
                     end = Offset(1000f, 900f)
-                ),
-                shape = cardShape
-            )
+                )
+                drawRoundRect(
+                    brush = borderBrush,
+                    topLeft = Offset(halfStroke, halfStroke),
+                    size = Size(size.width - strokePx, size.height - strokePx),
+                    cornerRadius = CornerRadius(28.dp.toPx(), 28.dp.toPx()),
+                    style = Stroke(width = strokePx)
+                )
+            }
     ) {
         // Animated ambient cosmic aurora background
         Canvas(modifier = Modifier.matchParentSize()) {
@@ -282,6 +295,7 @@ fun HeroAnimatedRadialGauge(
         clampedPct >= targetPercentage - 5f -> listOf(Color(0xFFF59E0B), Color(0xFFFBBF24))
         else -> listOf(Color(0xFFF43F5E), Color(0xFFFB7185))
     }
+    val sweepGradientColors = remember(sweepColors) { sweepColors + sweepColors.first() }
 
     Box(
         modifier = modifier,
@@ -308,21 +322,15 @@ fun HeroAnimatedRadialGauge(
 
             // Subtle rotating precision ticks around outer perimeter
             rotate(degrees = dialRotation, pivot = center) {
-                val ticks = 36
-                for (i in 0 until ticks) {
-                    val angleRad = Math.toRadians(i * (360.0 / ticks))
+                for (i in 0 until 36) {
+                    val cVal = GAUGE_TICK_COS[i]
+                    val sVal = GAUGE_TICK_SIN[i]
                     val rOuter = size.width / 2f - 1.dp.toPx()
                     val rInner = rOuter - 3.dp.toPx()
                     drawLine(
                         color = secondaryText.copy(alpha = if (i % 3 == 0) 0.30f else 0.10f),
-                        start = Offset(
-                            x = center.x + (rInner * cos(angleRad)).toFloat(),
-                            y = center.y + (rInner * sin(angleRad)).toFloat()
-                        ),
-                        end = Offset(
-                            x = center.x + (rOuter * cos(angleRad)).toFloat(),
-                            y = center.y + (rOuter * sin(angleRad)).toFloat()
-                        ),
+                        start = Offset(center.x + rInner * cVal, center.y + rInner * sVal),
+                        end = Offset(center.x + rOuter * cVal, center.y + rOuter * sVal),
                         strokeWidth = 1.2.dp.toPx(),
                         cap = StrokeCap.Round
                     )
@@ -387,7 +395,7 @@ fun HeroAnimatedRadialGauge(
             if (sweepAngle > 0.5f) {
                 // Soft glow under-arc
                 drawArc(
-                    brush = Brush.sweepGradient(colors = sweepColors + sweepColors.first(), center = center),
+                    brush = Brush.sweepGradient(colors = sweepGradientColors, center = center),
                     startAngle = -90f,
                     sweepAngle = sweepAngle,
                     useCenter = false,
@@ -399,7 +407,7 @@ fun HeroAnimatedRadialGauge(
 
                 // Main gradient arc
                 drawArc(
-                    brush = Brush.sweepGradient(colors = sweepColors + sweepColors.first(), center = center),
+                    brush = Brush.sweepGradient(colors = sweepGradientColors, center = center),
                     startAngle = -90f,
                     sweepAngle = sweepAngle,
                     useCenter = false,

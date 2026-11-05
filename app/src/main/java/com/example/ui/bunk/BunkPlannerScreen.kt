@@ -82,41 +82,191 @@ import com.example.ui.components.rememberEntranceTracker
 import com.example.ui.settings.rememberMotionEnabled
 import com.example.ui.theme.LocalGlassTheme
 import com.example.ui.theme.OutfitFontFamily
+import android.content.res.Configuration
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.ui.theme.PlusJakartaSansFontFamily
+import com.example.ui.upgrade.Aurora
+import com.example.ui.upgrade.BunkPlannerScreen as UpgradedBunkPlannerScreen
+import com.example.ui.upgrade.AuroraBackground as UpgradedAuroraBackground
+import com.example.ui.upgrade.Txt as UpgradedTxt
+import com.example.ui.upgrade.pressScale
 import com.example.ui.viewmodel.AttendanceViewModel
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
-/** Stateful host: reads the ViewModel (read-only) and owns the list/details back stack. */
+/** Stateful host: reads the ViewModel (read-only) and renders the upgraded Aurora Glass Bunk Planner. */
 @Composable
 fun BunkPlannerScreen(viewModel: AttendanceViewModel) {
-    val glass = LocalGlassTheme.current
     val profile by viewModel.profile.collectAsState()
-    val result by viewModel.bunkPlannerResult.collectAsState()
-    var detailRank by rememberSaveable { mutableStateOf<Int?>(null) }
+    val summaries by viewModel.subjectSummaries.collectAsState()
+    val bunkResult by viewModel.bunkPlannerResult.collectAsState()
 
-    BackHandler {
-        if (detailRank != null) detailRank = null else viewModel.closeBunkPlanner()
+    val required = remember(profile) {
+        (profile.examTarget.takeIf { it > 0 } ?: 75).toFloat()
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(glass.canvasStart, glass.canvasEnd)))
-    ) {
-        ProvideLiveMotion(true) {
-            AuroraBackground()
-            if (glass.isDark && profile.starfieldAnimationEnabled) {
-                StarfieldCanvas(modifier = Modifier.fillMaxSize(), enabled = true)
-            }
+    // Multi-subject selector list: "Overall" + each individual subject
+    val subjectList = remember(summaries, bunkResult) {
+        val items = mutableListOf<Triple<String, Int, Int>>() // Name, Attended, Total
+        val ovAttended = bunkResult?.overview?.currentAttended ?: summaries.sumOf { it.attendedCredits }
+        val ovConducted = bunkResult?.overview?.currentConducted ?: summaries.sumOf { it.conductedCredits }
+        items.add(Triple("Overall Attendance", ovAttended, ovConducted))
+        summaries.forEach { s ->
+            val label = s.subject.shortName.ifBlank { s.subject.code.ifBlank { s.subject.fullName } }
+            items.add(Triple(label, s.attendedCredits, s.conductedCredits))
         }
-        BunkPlannerContent(
-            result = result,
-            detailRank = detailRank,
-            onOpenDetails = { detailRank = it },
-            onCloseDetails = { detailRank = null },
-            onBack = { viewModel.closeBunkPlanner() },
-            onRefresh = { detailRank = null; viewModel.recalculateBunkPlanner() }
+        items
+    }
+
+    var selectedSubjectIndex by rememberSaveable { mutableIntStateOf(0) }
+    val safeIndex = selectedSubjectIndex.coerceIn(0, (subjectList.size - 1).coerceAtLeast(0))
+    val currentSubject = subjectList[safeIndex]
+
+    // Derive next 12 working class days
+    val upcomingDays = remember {
+        var d = AttendanceViewModel.liveToday()
+        val days = mutableListOf<String>()
+        while (days.size < 12) {
+            if (d.dayOfWeek != java.time.DayOfWeek.SUNDAY) {
+                val label = d.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+                days.add(label)
+            }
+            d = d.plusDays(1)
+        }
+        days
+    }
+
+    BackHandler {
+        viewModel.closeBunkPlanner()
+    }
+
+    UpgradedAuroraBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
+            // Top Navigation Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(0.08f))
+                        .border(1.dp, Color.White.copy(0.18f), CircleShape)
+                        .pressScale(haptic = true) { viewModel.closeBunkPlanner() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    UpgradedTxt("←", 20, Aurora.TextHi, FontWeight.Bold)
+                }
+
+                UpgradedTxt("Bunk Planner", 13, Aurora.TextLo, FontWeight.SemiBold)
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(0.08f))
+                        .border(1.dp, Color.White.copy(0.15f), RoundedCornerShape(50))
+                        .pressScale(haptic = true) { viewModel.closeBunkPlanner() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    UpgradedTxt("Close", 13, Aurora.TextHi, FontWeight.SemiBold)
+                }
+            }
+
+            // Horizontal Subject Selector Chips
+            if (subjectList.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    subjectList.forEachIndexed { index, (name, _, _) ->
+                        val isSelected = index == safeIndex
+                        val chipBg by animateColorAsState(
+                            if (isSelected) Aurora.Violet else Color.White.copy(0.08f),
+                            animationSpec = tween(300),
+                            label = "subChipBg"
+                        )
+                        val chipScale by animateFloatAsState(
+                            if (isSelected) 1.06f else 1f,
+                            animationSpec = spring(Spring.DampingRatioMediumBouncy),
+                            label = "subChipScale"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = chipScale
+                                    scaleY = chipScale
+                                }
+                                .clip(RoundedCornerShape(50))
+                                .background(chipBg)
+                                .then(
+                                    if (isSelected) {
+                                        Modifier.background(
+                                            Brush.horizontalGradient(listOf(Aurora.Violet, Aurora.Cyan))
+                                        )
+                                    } else {
+                                        Modifier.border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(50))
+                                    }
+                                )
+                                .pressScale(haptic = true) {
+                                    selectedSubjectIndex = index
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            UpgradedTxt(
+                                text = if (index == 0) "Overall" else name,
+                                size = 13,
+                                color = if (isSelected) Color.White else Aurora.TextLo,
+                                weight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+
+            UpgradedBunkPlannerScreen(
+                subject = currentSubject.first,
+                attended = currentSubject.second,
+                total = currentSubject.third,
+                required = required,
+                upcoming = upcomingDays,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Preview(name = "Bunk Planner Dark", showBackground = true, backgroundColor = 0xFF080816, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun BunkPlannerScreenDarkPreview() {
+    UpgradedAuroraBackground {
+        UpgradedBunkPlannerScreen(
+            subject = "Operating Systems",
+            attended = 30,
+            total = 38,
+            required = 75f
         )
     }
 }

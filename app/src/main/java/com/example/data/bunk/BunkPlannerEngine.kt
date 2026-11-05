@@ -235,7 +235,7 @@ object BunkPlannerEngine {
                 AttendanceProjection.meetsTarget(projA, projC, stipend)
             val comfortable = AttendanceProjection.meetsTarget(projA, projC, (required + buffer).coerceAtMost(100))
             val impacts = bySubject.map { (code, m) ->
-                val sub = subjectByCode[code]!!
+                val sub = subjectByCode[code] ?: Subject(code, code, code)
                 val base = baseBySubject[code]
                 val a0 = base?.attendedCredits ?: 0
                 val c0 = base?.conductedCredits ?: 0

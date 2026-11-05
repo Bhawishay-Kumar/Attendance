@@ -1,142 +1,215 @@
 package com.example.ui.whatif
 
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalAnimationApi
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.snap
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.data.whatif.ProjectionMode
-import com.example.ui.settings.rememberMotionEnabled
-import com.example.ui.theme.LocalGlassTheme
-import kotlinx.coroutines.delay
-import java.time.LocalDate
+import com.example.data.whatif.WhatIfCalculator
+import com.example.ui.upgrade.Aurora
+import com.example.ui.upgrade.AuroraBackground
+import com.example.ui.upgrade.Txt
+import com.example.ui.upgrade.WhatIfPredictorScreen
+import com.example.ui.upgrade.pressScale
 
-private fun titleFor(s: WhatIfScreen): String = when (s) {
-    WhatIfScreen.INTRO -> "What-If Predictor"
-    WhatIfScreen.CALENDAR -> "Plan your days"
-    WhatIfScreen.CLASSES -> "Choose classes"
-    WhatIfScreen.RESULTS -> "Projected result"
-    WhatIfScreen.BREAKDOWN -> "Breakdown"
-    WhatIfScreen.SAVED -> "Saved scenarios"
-    WhatIfScreen.SNAPSHOT -> "Saved scenario"
-    WhatIfScreen.COMPARE -> "Compare"
-}
-
-@OptIn(ExperimentalAnimationApi::class)
+/**
+ * Upgraded What-If Predictor Host.
+ * Connects real attendance data and subjects to the Aurora Glass WhatIfPredictorScreen.
+ */
 @Composable
 fun WhatIfPredictorHost(controller: WhatIfController) {
-    val t = LocalGlassTheme.current
     val ui by controller.ui.collectAsState()
-    val motion = rememberMotionEnabled()
-    var confirmExit by remember { mutableStateOf(false) }
+    val ctx = remember { controller.context() }
+    val profile = ctx.profile
 
-    fun requestExit() { if (controller.hasUnsavedPlan()) confirmExit = true else controller.close() }
+    // Real baseline attendance data
+    val baseline = ui.baseline ?: remember(ui) { WhatIfCalculator.buildBaseline(ctx) }
 
-    BackHandler(enabled = true) { if (!controller.back()) requestExit() }
-
-    LaunchedEffect(ui.message) {
-        if (ui.message != null) { delay(2600); controller.consumeMessage() }
-    }
-
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(t.canvasStart, t.canvasEnd)))
-            // Swallow touches so nothing behind the full-screen predictor can be tapped.
-            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}
-    ) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars)) {
-            WiHeader(
-                title = titleFor(ui.screen),
-                subtitle = when (ui.screen) {
-                    WhatIfScreen.CLASSES -> ui.focusDate?.let { longDate(it) }
-                    WhatIfScreen.RESULTS -> ui.mode.label
-                    else -> "Simulation only · your real attendance is never changed"
-                },
-                onBack = { if (!controller.back()) requestExit() },
-                trailing = {
-                    if (ui.screen == WhatIfScreen.INTRO || ui.screen == WhatIfScreen.CALENDAR || ui.screen == WhatIfScreen.RESULTS) {
-                        WiGhostButton("Close", color = t.textSecondary) { requestExit() }
-                    }
-                }
-            )
-            AnimatedContent(
-                targetState = ui.screen,
-                modifier = Modifier.weight(1f),
-                transitionSpec = {
-                    if (!motion) fadeIn(snap()) togetherWith fadeOut(snap())
-                    else {
-                        val forward = targetState.ordinal >= initialState.ordinal
-                        val dir = if (forward) 1 else -1
-                        (slideInHorizontally(tween(320, easing = FastOutSlowInEasing)) { it / 6 * dir } + fadeIn(tween(320))) togetherWith
-                            (slideOutHorizontally(tween(240, easing = FastOutSlowInEasing)) { -it / 8 * dir } + fadeOut(tween(200)))
-                    }
-                },
-                label = "whatIfScreen"
-            ) { screen ->
-                when (screen) {
-                    WhatIfScreen.INTRO -> IntroScreen(ui, controller)
-                    WhatIfScreen.CALENDAR -> CalendarScreen(ui, controller)
-                    WhatIfScreen.CLASSES -> ClassesScreen(ui, controller)
-                    WhatIfScreen.RESULTS -> ResultsScreen(ui, controller)
-                    WhatIfScreen.BREAKDOWN -> ui.result?.let { BreakdownScreen(it) }
-                    WhatIfScreen.SAVED -> SavedScreen(ui, controller)
-                    WhatIfScreen.SNAPSHOT -> SnapshotScreen(ui, controller)
-                    WhatIfScreen.COMPARE -> ui.compareReport?.let { CompareScreen(it) }
-                }
+    // Multi-subject selector list: "Overall" + each individual subject
+    val subjectList = remember(baseline) {
+        val items = mutableListOf<Triple<String, Int, Int>>() // Name, Attended, Total
+        if (baseline != null) {
+            items.add(Triple("Overall Attendance", baseline.attended, baseline.conducted))
+            baseline.subjects.forEach { s ->
+                val label = s.shortName.ifBlank { s.code.ifBlank { s.fullName } }
+                items.add(Triple(label, s.attended, s.conducted))
             }
         }
+        if (items.isEmpty()) {
+            items.add(Triple("Overall Attendance", 0, 0))
+        }
+        items
+    }
 
-        AnimatedVisibility(
-            visible = ui.message != null,
-            modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 24.dp),
-            enter = fadeIn(), exit = fadeOut()
+    var selectedSubjectIndex by rememberSaveable { mutableIntStateOf(0) }
+    val safeIndex = selectedSubjectIndex.coerceIn(0, (subjectList.size - 1).coerceAtLeast(0))
+    val currentSubject = subjectList[safeIndex]
+
+    val requiredTarget = remember(profile) {
+        (profile.examTarget.takeIf { it > 0 } ?: 75).toFloat()
+    }
+
+    BackHandler(enabled = true) {
+        controller.close()
+    }
+
+    AuroraBackground {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
-            Box(Modifier.clip(RoundedCornerShape(50)).background(t.royalIndigo).padding(horizontal = 18.dp, vertical = 10.dp)) {
-                WiText(ui.message ?: "", size = 13.sp, color = androidx.compose.ui.graphics.Color.White)
+            // Top Navigation Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Back button
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(0.08f))
+                        .border(1.dp, Color.White.copy(0.18f), CircleShape)
+                        .pressScale(haptic = true) { controller.close() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Txt("←", 20, Aurora.TextHi, FontWeight.Bold)
+                }
+
+                Txt("Simulation Mode", 13, Aurora.TextLo, FontWeight.SemiBold)
+
+                // Close button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(0.08f))
+                        .border(1.dp, Color.White.copy(0.15f), RoundedCornerShape(50))
+                        .pressScale(haptic = true) { controller.close() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Txt("Close", 13, Aurora.TextHi, FontWeight.SemiBold)
+                }
             }
+
+            // Horizontal Subject Selector Chips
+            if (subjectList.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    subjectList.forEachIndexed { index, (name, att, tot) ->
+                        val isSelected = index == safeIndex
+                        val chipBg by animateColorAsState(
+                            if (isSelected) Aurora.Violet else Color.White.copy(0.08f),
+                            animationSpec = tween(300),
+                            label = "subChipBg"
+                        )
+                        val chipScale by animateFloatAsState(
+                            if (isSelected) 1.06f else 1f,
+                            animationSpec = spring(Spring.DampingRatioMediumBouncy),
+                            label = "subChipScale"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = chipScale
+                                    scaleY = chipScale
+                                }
+                                .clip(RoundedCornerShape(50))
+                                .background(chipBg)
+                                .then(
+                                    if (isSelected) {
+                                        Modifier.background(
+                                            Brush.horizontalGradient(listOf(Aurora.Violet, Aurora.Cyan))
+                                        )
+                                    } else {
+                                        Modifier.border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(50))
+                                    }
+                                )
+                                .pressScale(haptic = true) {
+                                    selectedSubjectIndex = index
+                                }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Txt(
+                                text = if (index == 0) "Overall" else name,
+                                size = 13,
+                                color = if (isSelected) Color.White else Aurora.TextLo,
+                                weight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+
+            // Upgraded What-If Predictor Screen
+            WhatIfPredictorScreen(
+                subject = currentSubject.first,
+                attended = currentSubject.second,
+                total = currentSubject.third,
+                required = requiredTarget,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
+}
 
-    if (ui.saveDraftId != null) {
-        NameDialog(
-            title = "Save scenario",
-            initial = "Scenario ${LocalDate.now().dayOfMonth}-${ui.mode.label}".replace("Plan Only", "plan").replace("Month End", "month end"),
-            confirm = "Save",
-            onDismiss = { controller.cancelSave() },
-            onConfirm = { controller.save(it) }
-        )
-    }
-    if (confirmExit) {
-        ConfirmDialog(
-            "Leave the predictor?", "Your unsaved plan will be discarded. Save it first if you want to keep it.", "Discard & leave",
-            onDismiss = { confirmExit = false },
-            onConfirm = { confirmExit = false; controller.close() }
+@Preview(name = "What-If Predictor Dark", showBackground = true, backgroundColor = 0xFF080816, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun WhatIfPredictorScreenDarkPreview() {
+    AuroraBackground {
+        WhatIfPredictorScreen(
+            subject = "Data Structures & Algorithms",
+            attended = 28,
+            total = 36,
+            required = 75f
         )
     }
 }

@@ -205,9 +205,22 @@ class AttendanceRepository(
 
     fun updateProfile(requested: StudentProfile) {
         val old = _profileState.value
-        val profile = if (requested.isDarkMode != old.isDarkMode && requested.themeMode == old.themeMode)
-            requested.copy(themeMode = if (requested.isDarkMode) ThemeMode.DARK.name else ThemeMode.LIGHT.name)
-        else requested
+        val resolvedThemeMode = when {
+            requested.themeMode != old.themeMode && requested.themeMode.isNotBlank() -> requested.themeMode
+            requested.isDarkMode != old.isDarkMode -> if (requested.isDarkMode) ThemeMode.DARK.name else ThemeMode.LIGHT.name
+            requested.themeMode.isNotBlank() -> requested.themeMode
+            else -> if (requested.isDarkMode) ThemeMode.DARK.name else ThemeMode.LIGHT.name
+        }
+        val resolvedIsDarkMode = when (resolvedThemeMode) {
+            ThemeMode.DARK.name -> true
+            ThemeMode.LIGHT.name -> false
+            ThemeMode.SYSTEM.name -> requested.isDarkMode
+            else -> requested.isDarkMode
+        }
+        val profile = requested.copy(
+            themeMode = resolvedThemeMode,
+            isDarkMode = resolvedIsDarkMode
+        )
         _profileState.value = profile
         dataVersion.incrementAndGet()
         prefs.edit().apply {

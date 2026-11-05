@@ -49,6 +49,9 @@ import java.io.FileOutputStream
  */
 object ProfilePhotoStore {
 
+    private val bitmapCache = java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>()
+    val assetLogoCache = java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>()
+
     /** Returns the most recently saved profile photo File, if one exists. */
     fun getLatestPhotoFile(context: Context): File? {
         val files = context.filesDir.listFiles { _, name ->
@@ -107,7 +110,10 @@ object ProfilePhotoStore {
 
             val file = File(context.filesDir, "profile_photo_${System.currentTimeMillis()}.jpg")
             FileOutputStream(file).use { out.compress(Bitmap.CompressFormat.JPEG, 90, it) }
-            file.absolutePath
+            val path = file.absolutePath
+            val loaded = out.asImageBitmap()
+            bitmapCache[path] = loaded
+            path
         }.getOrNull()
     }
 
@@ -115,6 +121,7 @@ object ProfilePhotoStore {
 
     /** Removes all saved custom profile photos from internal storage. */
     fun clear(context: Context) {
+        bitmapCache.clear()
         runCatching {
             context.filesDir.listFiles { _, name ->
                 name.startsWith("profile_photo_")
@@ -125,16 +132,19 @@ object ProfilePhotoStore {
     /** Deletes a specific photo path if it matches the profile photo naming pattern. */
     fun delete(path: String) {
         if (path.isBlank()) return
+        bitmapCache.remove(path)
         runCatching {
             val f = File(path)
             if (f.exists() && f.name.startsWith("profile_photo_")) f.delete()
         }
     }
 
-    /** Loads an ImageBitmap directly from a file path. */
+    /** Loads an ImageBitmap directly from a file path with in-memory caching. */
     fun load(path: String): ImageBitmap? {
         if (path.isBlank()) return null
-        return runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull()
+        return bitmapCache.getOrPut(path) {
+            runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() ?: return null
+        }
     }
 }
 
@@ -164,21 +174,24 @@ fun BkBrandLogoImage(
         val assetBitmap: ImageBitmap? = remember(darkTheme) {
             if (drawableResId != 0) null
             else {
-                val candidateFiles = if (darkTheme) {
-                    listOf("bk_logo_dark.png", "1000096716.png")
-                } else {
-                    listOf("bk_logo_light.jpg", "bk_logo_light.png", "1000090211.jpg")
+                val cacheKey = if (darkTheme) "dark_logo" else "light_logo"
+                ProfilePhotoStore.assetLogoCache.getOrPut(cacheKey) {
+                    val candidateFiles = if (darkTheme) {
+                        listOf("bk_logo_dark.png", "1000096716.png")
+                    } else {
+                        listOf("bk_logo_light.jpg", "bk_logo_light.png", "1000090211.jpg")
+                    }
+                    var loaded: ImageBitmap? = null
+                    for (name in candidateFiles) {
+                        try {
+                            context.assets.open(name).use { stream ->
+                                loaded = BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                            }
+                            if (loaded != null) break
+                        } catch (_: Exception) {}
+                    }
+                    loaded ?: return@remember null
                 }
-                var loaded: ImageBitmap? = null
-                for (name in candidateFiles) {
-                    try {
-                        context.assets.open(name).use { stream ->
-                            loaded = BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                        }
-                        if (loaded != null) break
-                    } catch (_: Exception) {}
-                }
-                loaded
             }
         }
 
@@ -228,7 +241,7 @@ fun GlobalProfileAvatar(
         if (!photoPath.isNullOrBlank()) {
             ProfilePhotoStore.load(photoPath)
         } else {
-            ProfilePhotoStore.loadBitmap(context, maxEdgePx = 512)?.asImageBitmap()
+            ProfilePhotoStore.getLatestPhotoFile(context)?.absolutePath?.let { ProfilePhotoStore.load(it) }
         }
     }
 

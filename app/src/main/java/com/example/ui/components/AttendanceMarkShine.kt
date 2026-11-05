@@ -51,6 +51,11 @@ fun Modifier.attendanceShine(status: PeriodStatus?): Modifier = composed {
         progress.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
     }
 
+    val peak = if (tone != normal) 0.55f else (if (dark) 0.30f else 0.35f)
+    val shineColors = remember(tone, peak) {
+        listOf(Color.Transparent, tone.copy(alpha = peak), Color.Transparent)
+    }
+
     clip(RoundedCornerShape(16.dp)).drawWithContent {
         drawContent()
         val p = progress.value
@@ -58,13 +63,12 @@ fun Modifier.attendanceShine(status: PeriodStatus?): Modifier = composed {
             val colored = tone != normal
             // soft shade wash that rises and fades
             val wash = sin(PI * p).toFloat() * (if (colored) 0.16f else 0.06f)
-            drawRect(tone.copy(alpha = wash))
+            drawRect(tone, alpha = wash)
             // diagonal shine band sweeping left -> right
             val x = -size.width * 0.5f + p * size.width * 2f
-            val peak = if (colored) 0.55f else (if (dark) 0.30f else 0.35f)
             drawRect(
                 Brush.linearGradient(
-                    listOf(Color.Transparent, tone.copy(alpha = peak), Color.Transparent),
+                    shineColors,
                     start = Offset(x, 0f),
                     end = Offset(x + size.width * 0.45f, size.height * 0.5f)
                 )

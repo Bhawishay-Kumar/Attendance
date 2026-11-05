@@ -208,6 +208,9 @@ fun Modifier.shineSweep(enabled: Boolean, periodMs: Int = 3600, strength: Float 
     if (!enabled) {
         this
     } else {
+        val colors = remember(strength) {
+            listOf(Color.Transparent, Color.White.copy(alpha = strength), Color.Transparent)
+        }
         val x = rememberInfiniteTransition(label = "shine").animateFloat(
             initialValue = 0f, targetValue = 1.8f,
             animationSpec = infiniteRepeatable(tween(periodMs, easing = LinearEasing), RepeatMode.Restart),
@@ -220,7 +223,7 @@ fun Modifier.shineSweep(enabled: Boolean, periodMs: Int = 3600, strength: Float 
             if (start < size.width) {
                 drawRect(
                     Brush.linearGradient(
-                        listOf(Color.Transparent, Color.White.copy(alpha = strength), Color.Transparent),
+                        colors,
                         start = Offset(start, 0f),
                         end = Offset(start + band, size.height * 0.6f)
                     )
